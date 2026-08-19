@@ -1,0 +1,90 @@
+// Prisma schema — Imperio Barber
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  EXPIRED
+}
+
+model Barber {
+  id            String   @id @default(uuid())
+  name          String
+  slug          String   @unique
+  photoUrl      String
+  whatsappPhone String   @unique
+  bio           String?
+  ratingAverage Float    @default(0)
+  ratingCount   Int      @default(0)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  schedules BarberSchedule[]
+  bookings  Booking[]
+
+  @@map("barbers")
+}
+
+model Service {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  description     String?
+  priceClp        Int
+  durationMinutes Int
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bookings Booking[]
+
+  @@map("services")
+}
+
+/// Horario semanal recurrente de un barbero. Un row por día de semana (0=domingo .. 6=sábado).
+model BarberSchedule {
+  id           String  @id @default(uuid())
+  barberId     String
+  barber       Barber  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  weekday      Int
+  isWorkingDay Boolean @default(true)
+  startMinute  Int
+  endMinute    Int
+
+  @@unique([barberId, weekday])
+  @@map("barber_schedules")
+}
+
+model Booking {
+  id                String        @id @default(uuid())
+  barberId          String
+  barber            Barber        @relation(fields: [barberId], references: [id])
+  serviceId         String
+  service           Service       @relation(fields: [serviceId], references: [id])
+  customerName      String
+  customerPhone     String
+  date              DateTime      @db.Date
+  startMinute       Int
+  endMinute         Int
+  priceClpSnapshot  Int
+  status            BookingStatus @default(PENDING)
+  confirmationToken String        @unique
+  expiresAt         DateTime
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([barberId, date, status])
+  @@map("bookings")
+}
