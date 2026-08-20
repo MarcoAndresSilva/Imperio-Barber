@@ -1,0 +1,31 @@
+<section class="servicios" id="servicios">
+  <div class="container">
+    <div class="section-head center">
+      <div class="eyebrow">Nuestros servicios</div>
+      <h2>Precios claros, resultados impecables</h2>
+      <p class="lead">Selecciona el servicio al agendar tu hora. Precios en pesos chilenos (CLP).</p>
+    </div>
+  </div>
+  <div class="container">
+    @if (loading()) {
+      <p class="state-msg">Cargando servicios…</p>
+    } @else if (error()) {
+      <p class="state-msg error">{{ error() }}</p>
+    } @else {
+      <div class="grid">
+        @for (service of services(); track service.id) {
+          <div class="card">
+            <div class="top">
+              <h3>{{ service.name }}</h3>
+              <span class="precio">{{ formatPrice(service.priceClp) }}</span>
+            </div>
+            @if (service.description) {
+              <p>{{ service.description }}</p>
+            }
+            <div class="duracion">{{ service.durationMinutes }} min</div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+</section>
