@@ -127,4 +127,29 @@ El cliente planteó una visión de largo plazo para este tipo de proyectos (siti
 - **Lección:** con dos usos de timezone en el mismo módulo (uno correcto — `chile-time.ts` para "ahora" — y otro que no debía tener timezone en absoluto — formatear una fecha ya fija), es fácil aplicar el mismo patrón donde no corresponde. Se verificó con una prueba end-to-end real (`curl` contra el servidor, no solo tests unitarios) antes de dar el módulo por cerrado — así se encontró este bug, que los tests unitarios del algoritmo puro no cubrían porque no tocaban el formateo del mensaje.
 - **Verificación final:** flujo completo probado con `curl` contra Postgres local — crear reserva en un horario libre, intentar crear otra que se solapa (**409 Conflict** correcto), ver por token, confirmar (**200**, pasa a `CONFIRMED`), reintentar confirmar la misma reserva (**409**, ya no está `PENDING`), y disponibilidad recalculada mostrando exactamente el hueco libre restante entre las dos reservas activas.
 
+## Parte 3: Frontend — rebranding y landing
+
+### Paso 15: Base del frontend — tokens de diseño, tipografías, y el componente Logo
+
+- **Objetivo:** trasladar la identidad real (Paso 2) a Angular: paleta B/N/gris/hueso, tipografías, y una recreación del logo.
+- **Tokens (`src/styles/_tokens.scss`):** custom properties CSS con la paleta real (`--color-bg`, `--color-text`, `--color-accent: #f2ede4`, etc.) — reemplaza por completo el `--gold` del sitio viejo, no quedó ningún dorado en el frontend nuevo.
+- **Tipografías:** Playfair Display (serif, títulos) + Inter (sans, cuerpo) + Parisienne (script, acentos tipo firma — usada en "mereces" del hero y en la firma del footer) cargadas vía Google Fonts en `index.html`.
+- **`design-system/logo/`:** componente con dos variantes — `wordmark` (texto compacto para header/footer) y `badge` (insignia circular SVG completa, aproximación a mano del sticker real — ver Paso 2, pendiente el archivo vectorial real).
+- **`design-system/header/` y `design-system/footer/`:** migrados del `index.html` viejo, con el menú móvil reimplementado con un signal (`mobileMenuOpen`) en vez de manipulación directa del DOM como hacía el `script.js` original.
+
+### Paso 16: Landing consumiendo el API real
+
+- **Objetivo:** construir la landing (`features/landing/`: hero, servicios, nosotros, info) reutilizando el copy del sitio viejo pero con los datos reales (teléfono +56994620439, ubicación "Manzo 520", horario Lunes–Sábado) y la sección de Servicios trayendo los datos en vivo desde `GET /services` (no hardcodeados en el frontend).
+- **Estado con signals:** `Servicios` usa `signal<Service[]>` + `signal<boolean>` (loading) + `signal<string|null>` (error) actualizados manualmente en el `subscribe()` de `ServicesApiService` — se evaluó `httpResource()` (la API experimental de Angular 19+) pero se optó por el patrón manual con `HttpClient`, más estable, tal como dejó anotado el plan original como fallback seguro.
+- **Ruteo:** `app.routes.ts` con una sola ruta (`''`) que carga `Landing` con `loadComponent` (lazy). La ruta `/confirmar/:token` queda para la Fase 7.
+- **Sección "Agendar" del sitio viejo:** no se migró — el plan la reemplaza por el flujo de reserva de Profesionales (Fase 6, siguiente). Mientras tanto, el CTA del hero y el botón flotante apuntan a WhatsApp directo con el número real, como contacto general.
+
+### Paso 17: Verificación visual real (no solo build) — y dos bugs encontrados
+
+Antes de dar la fase por cerrada, se instaló Chromium vía Playwright y se levantaron backend + frontend juntos para probarlo en un navegador real, no solo compilar. Esto encontró dos bugs que ni el build ni los tests unitarios habrían detectado:
+
+- **Puertos 3000/4200 ocupados por otros proyectos del usuario en la misma máquina** (ya visto antes con 5432 y 3000 — Paso 9 y 12): este backend quedó fijo en el 3001 (ya existía) y el frontend de desarrollo se levantó en el **4201** para esta máquina.
+- **Bug real: CORS bloqueaba todas las llamadas del navegador al API** — `GET /services` fallaba en el navegador (`Access-Control-Allow-Origin` seguía devolviendo `http://localhost:4200`, el valor por defecto, en vez de la URL real del frontend) aunque `curl` nunca lo detectó porque `curl` no manda cabecera `Origin` a menos que se le pida explícitamente — o sea, **CORS nunca se había ejercitado de verdad** en ninguna prueba anterior. Causa: `main.ts` leía `process.env.FRONTEND_URL` directo, pero `@nestjs/config` no copia las variables del `.env` al `process.env` global — solo quedan accesibles vía `ConfigService` (el mismo patrón que `PrismaService` ya usaba correctamente para `DATABASE_URL`). Se corrigió `main.ts` para leer `FRONTEND_URL` y `PORT` a través de `app.get(ConfigService)`, consistente con el resto del backend.
+- **Verificado:** landing completa en desktop y mobile (capturas de pantalla), los 6 servicios cargando datos reales del API, y el menú móvil abriendo/cerrando correctamente.
+
 _(se sigue completando a medida que se construye)_
