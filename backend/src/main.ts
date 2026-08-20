@@ -1,12 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // @nestjs/config no vuelca las variables del .env a process.env — hay que
+  // leerlas siempre vía ConfigService (mismo patrón que ya usa PrismaService).
+  const configService = app.get(ConfigService);
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'http://localhost:4200',
+    origin: configService.get<string>('FRONTEND_URL') ?? 'http://localhost:4200',
   });
 
   app.useGlobalPipes(
@@ -17,6 +21,6 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(configService.get<string>('PORT') ?? 3000);
 }
 bootstrap();
