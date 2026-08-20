@@ -1,0 +1,18 @@
+{
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.angular": true,
+    "backend/generated": true,
+    "backend/.agents": true,
+    "backend/.windsurf": true,
+    "backend/.claude/skills": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.angular": true,
+    "backend/generated": true,
+    "**/package-lock.json": true
+  }
+}
