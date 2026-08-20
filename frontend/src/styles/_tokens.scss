@@ -1,0 +1,22 @@
+// Identidad real de Imperio Barber (logo + flyer): blanco/negro/gris, sin dorado.
+// Ver ARCHITECTURE.md, Paso 2.
+:root {
+  --color-bg: #0a0a0a;
+  --color-bg-alt: #131313;
+  --color-panel: #161513;
+  --color-border: #2a2621;
+
+  --color-text: #f2ede4; // hueso, del fondo del logo
+  --color-text-muted: #a9a29a;
+
+  --color-accent: #f2ede4; // acento cálido puntual (reemplaza al dorado del sitio viejo)
+  --color-accent-strong: #ffffff;
+
+  --color-whatsapp: #25d366;
+
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-script: 'Parisienne', cursive;
+
+  --radius: 2px;
+}

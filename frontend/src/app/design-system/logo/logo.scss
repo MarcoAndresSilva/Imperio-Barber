@@ -1,0 +1,74 @@
+:host {
+  display: inline-flex;
+}
+
+.wordmark {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-text);
+}
+
+.wordmark-accent {
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.badge {
+  width: 160px;
+  height: 160px;
+}
+
+.badge-bg {
+  fill: #f2ede4;
+}
+
+.badge-ring {
+  stroke: #0a0a0a;
+  stroke-width: 1;
+  opacity: 0.15;
+}
+
+.badge-est {
+  font-family: var(--font-sans);
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  fill: #0a0a0a;
+  opacity: 0.7;
+}
+
+.badge-column {
+  fill: #0a0a0a;
+}
+
+.column-shaft {
+  stroke: none;
+}
+
+.badge-column line {
+  stroke: #f2ede4;
+  stroke-width: 1.5;
+}
+
+.badge-title {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 700;
+  fill: #0a0a0a;
+  letter-spacing: 0.02em;
+}
+
+.badge-divider {
+  stroke: #0a0a0a;
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+.badge-subtitle {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  fill: #0a0a0a;
+  opacity: 0.75;
+}
