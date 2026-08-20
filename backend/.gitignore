@@ -3,3 +3,11 @@ node_modules
 .env
 
 /generated/prisma
+dist
+
+# Docs de referencia para agentes de IA que instala el propio CLI de Prisma
+# (no es código del proyecto, se puede regenerar con `npx prisma init`).
+.agents/
+.claude/skills/
+.windsurf/
+skills-lock.json
