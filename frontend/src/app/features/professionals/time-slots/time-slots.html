@@ -1,0 +1,23 @@
+@if (loading()) {
+  <p class="msg">Buscando horarios…</p>
+} @else if (slots().length === 0) {
+  <p class="msg">No hay horarios disponibles este día. Prueba con otra fecha.</p>
+} @else {
+  <div class="grid">
+    @for (slot of slots(); track slot.startMinute) {
+      <button
+        type="button"
+        class="slot"
+        [class.selected]="slot.available && slot.startMinute === selectedStartMinute()"
+        [class.taken]="!slot.available"
+        [disabled]="!slot.available"
+        (click)="slotSelected.emit(slot)"
+      >
+        <span class="time">{{ formatMinutesToHHMM(slot.startMinute) }}</span>
+        @if (!slot.available) {
+          <span class="taken-label">Tomado</span>
+        }
+      </button>
+    }
+  </div>
+}

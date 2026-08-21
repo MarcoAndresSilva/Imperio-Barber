@@ -4,12 +4,13 @@
     <nav>
       <ul>
         <li><a href="#servicios">Servicios</a></li>
+        <li><a href="#profesionales">Profesionales</a></li>
         <li><a href="#nosotros">Nosotros</a></li>
         <li><a href="#info">Horario</a></li>
       </ul>
     </nav>
     <div class="nav-cta">
-      <a [href]="whatsappUrl" target="_blank" rel="noopener" class="btn btn-outline">Agendar cita</a>
+      <a href="#profesionales" class="btn btn-outline">Agendar cita</a>
       <button
         class="menu-toggle"
         type="button"
@@ -27,16 +28,11 @@
   <div class="mobile-menu">
     <ul>
       <li><a href="#servicios" (click)="closeMobileMenu()">Servicios</a></li>
+      <li><a href="#profesionales" (click)="closeMobileMenu()">Profesionales</a></li>
       <li><a href="#nosotros" (click)="closeMobileMenu()">Nosotros</a></li>
       <li><a href="#info" (click)="closeMobileMenu()">Horario</a></li>
       <li>
-        <a
-          [href]="whatsappUrl"
-          target="_blank"
-          rel="noopener"
-          class="btn btn-solid"
-          (click)="closeMobileMenu()"
-        >Agendar cita</a>
+        <a href="#profesionales" class="btn btn-solid" (click)="closeMobileMenu()">Agendar cita</a>
       </li>
     </ul>
   </div>

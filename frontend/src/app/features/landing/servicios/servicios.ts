@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ServicesApiService } from '../../../core/services/services-api.service';
 import { Service } from '../../../core/models/service.model';
+import { formatClp } from '../../../core/utils/currency.util';
 
 @Component({
   selector: 'app-servicios',
@@ -28,7 +29,5 @@ export class Servicios {
     });
   }
 
-  protected formatPrice(priceClp: number): string {
-    return `$${priceClp.toLocaleString('es-CL')}`;
-  }
+  protected readonly formatPrice = formatClp;
 }

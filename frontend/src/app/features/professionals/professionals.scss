@@ -1,0 +1,164 @@
+.profesionales {
+  padding: 96px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.state-msg {
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 40px 0;
+
+  &.error {
+    color: #e08585;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-bottom: 48px;
+}
+
+.panel {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 48px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  padding: 40px;
+  transition: opacity 180ms ease;
+
+  &.fading {
+    opacity: 0;
+  }
+}
+
+.left {
+  // align-self: start evita que .left se estire a la altura de TODA la columna derecha
+  // (calendario + horarios + formulario, que puede ser muy alta) — la foto solo debe
+  // quedar del porte del calendario, no de esa columna completa.
+  align-self: start;
+  text-align: center;
+
+  h3 {
+    font-size: 22px;
+    margin: 16px 0 8px;
+  }
+
+  .bio {
+    color: var(--color-text-muted);
+    font-size: 14px;
+    margin-top: 16px;
+  }
+}
+
+.photo {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-size: 48px;
+  color: var(--color-text-muted);
+}
+
+.stars {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-border);
+  font-size: 16px;
+
+  .filled {
+    color: var(--color-accent);
+  }
+
+  .rating-number {
+    margin-left: 8px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+  }
+}
+
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+  }
+
+  select {
+    width: 100%;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    border-radius: var(--radius);
+  }
+}
+
+.success {
+  color: #b8f2cf;
+  background: rgba(37, 211, 102, 0.08);
+  border: 1px solid var(--color-whatsapp);
+  padding: 14px 16px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .profesionales {
+    padding: 64px 0;
+  }
+
+  .panel {
+    padding: 24px;
+  }
+}

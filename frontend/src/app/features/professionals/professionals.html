@@ -1,0 +1,100 @@
+<section class="profesionales" id="profesionales">
+  <div class="container">
+    <div class="section-head center">
+      <div class="eyebrow">Profesionales</div>
+      <h2>Elige tu barbero</h2>
+      <p class="lead">Cada uno con su propio horario y disponibilidad real — reserva en el momento.</p>
+    </div>
+  </div>
+
+  <div class="container">
+    @if (loadingBarbers()) {
+      <p class="state-msg">Cargando barberos…</p>
+    } @else if (listError()) {
+      <p class="state-msg error">{{ listError() }}</p>
+    } @else {
+      <div class="grid">
+        @for (barber of barbers(); track barber.id) {
+          <app-barber-card
+            [barber]="barber"
+            [selected]="barber.id === selectedBarberId()"
+            (selectBarber)="selectedBarberId.set($event)"
+          />
+        }
+      </div>
+    }
+
+    @if (selectedBarber(); as barber) {
+      <div class="panel" [class.fading]="panelFading()">
+        <div class="left">
+          <div class="photo">
+            @if (!leftPhotoFailed()) {
+              <img
+                [src]="barber.photoUrl"
+                [alt]="barber.name"
+                (error)="onImageErrorLeft()"
+              />
+            } @else {
+              <div class="placeholder">{{ initialsOf(barber.name) }}</div>
+            }
+          </div>
+          <h3>{{ barber.name }}</h3>
+          <div class="stars" [attr.aria-label]="barber.ratingAverage + ' de 5'">
+            @for (i of [0, 1, 2, 3, 4]; track i) {
+              <span [class.filled]="i < filledStars()">★</span>
+            }
+            <span class="rating-number">{{ barber.ratingAverage.toFixed(1) }}</span>
+          </div>
+          @if (barber.bio) {
+            <p class="bio">{{ barber.bio }}</p>
+          }
+        </div>
+
+        <div class="right">
+          <div class="field">
+            <label for="serviceSelect">Servicio</label>
+            <select
+              id="serviceSelect"
+              [value]="selectedServiceId()"
+              (change)="selectedServiceId.set($any($event.target).value)"
+            >
+              @for (service of services(); track service.id) {
+                <option [value]="service.id">
+                  {{ service.name }} — {{ formatPrice(service.priceClp) }} ({{ service.durationMinutes }} min)
+                </option>
+              }
+            </select>
+          </div>
+
+          <app-calendar
+            [selectedDate]="selectedDate()"
+            [disabledWeekdays]="disabledWeekdays()"
+            (dateSelected)="selectedDate.set($event)"
+          />
+
+          <div class="slots-block">
+            <app-time-slots
+              [slots]="availableSlots()"
+              [loading]="loadingAvailability()"
+              [selectedStartMinute]="selectedSlot()?.startMinute ?? null"
+              (slotSelected)="selectedSlot.set($event)"
+            />
+          </div>
+
+          @if (bookingSuccessUrl()) {
+            <p class="success">
+              ¡Listo! Se abrió WhatsApp con tu solicitud — el barbero debe confirmarla para que
+              quede tomada la hora.
+            </p>
+          } @else if (selectedSlot()) {
+            <app-booking-form
+              [submitting]="bookingSubmitting()"
+              [errorMessage]="bookingError()"
+              (submitBooking)="onSubmitBooking($event)"
+            />
+          }
+        </div>
+      </div>
+    }
+  </div>
+</section>

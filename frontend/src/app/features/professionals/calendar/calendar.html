@@ -1,0 +1,30 @@
+<div class="calendar">
+  <div class="nav">
+    <button type="button" (click)="prevMonth()" [disabled]="!canGoPrev()" aria-label="Mes anterior">‹</button>
+    <span class="label">{{ monthLabel() }}</span>
+    <button type="button" (click)="nextMonth()" aria-label="Mes siguiente">›</button>
+  </div>
+
+  <div class="weekdays">
+    @for (label of weekdayLabels; track label) {
+      <span>{{ label }}</span>
+    }
+  </div>
+
+  <div class="grid">
+    @for (week of weeks(); track $index) {
+      @for (cell of week; track cell.dateStr) {
+        <button
+          type="button"
+          class="day"
+          [class.muted]="!cell.inCurrentMonth"
+          [class.selected]="cell.dateStr === selectedDate()"
+          [disabled]="isDisabled(cell.dateStr, cell.isPast)"
+          (click)="dateSelected.emit(cell.dateStr)"
+        >
+          {{ cell.day }}
+        </button>
+      }
+    }
+  </div>
+</div>

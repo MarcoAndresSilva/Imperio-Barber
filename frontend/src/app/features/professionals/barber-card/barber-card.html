@@ -1,0 +1,20 @@
+<button
+  type="button"
+  class="card"
+  [class.selected]="selected()"
+  (click)="selectBarber.emit(barber().id)"
+>
+  <div class="photo">
+    @if (!imageFailed()) {
+      <img
+        [src]="barber().photoUrl"
+        [alt]="barber().name"
+        (error)="onImageError()"
+      />
+    } @else {
+      <div class="placeholder">{{ initials }}</div>
+    }
+  </div>
+  <div class="name">{{ barber().name }}</div>
+  <div class="rating">★ {{ barber().ratingAverage.toFixed(1) }}</div>
+</button>

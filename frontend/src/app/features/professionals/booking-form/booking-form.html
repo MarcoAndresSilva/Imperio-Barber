@@ -1,0 +1,30 @@
+<form class="booking-form" (submit)="$event.preventDefault(); onSubmit()">
+  <div class="field">
+    <label for="customerName">Tu nombre</label>
+    <input
+      id="customerName"
+      type="text"
+      placeholder="Nombre completo"
+      [value]="customerName()"
+      (input)="customerName.set($any($event.target).value)"
+    />
+  </div>
+  <div class="field">
+    <label for="customerPhone">Tu teléfono</label>
+    <input
+      id="customerPhone"
+      type="tel"
+      placeholder="+56 9 ..."
+      [value]="customerPhone()"
+      (input)="customerPhone.set($any($event.target).value)"
+    />
+  </div>
+
+  @if (errorMessage()) {
+    <p class="error">{{ errorMessage() }}</p>
+  }
+
+  <button type="submit" class="btn btn-solid btn-block" [disabled]="!canSubmit || submitting()">
+    {{ submitting() ? 'Reservando…' : 'Reservar y enviar por WhatsApp' }}
+  </button>
+</form>
