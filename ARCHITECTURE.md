@@ -11,7 +11,33 @@ Imperio Barber (barbería en Santiago, Chile) tenía un sitio web estático de u
 
 El objetivo de este proyecto es reconstruir el sitio desde cero con la identidad visual real de la marca, y agregar un sistema de reservas real por barbero: elegir profesional → ver su valoración → elegir servicio → ver un calendario con horarios efectivamente disponibles → reservar (bloqueando el horario) → notificar al barbero por WhatsApp con un link de un solo toque para que confirme o rechace, sin necesidad de login.
 
-El plan completo de arquitectura está en `/home/msilvap/.claude/plans/analiosa-primeor-los-archivos-crystalline-oasis.md` (contexto, modelo de datos, endpoints, fases). Este documento es el registro de cómo se fue construyendo esa idea en la práctica.
+Este documento es el registro de cómo se fue construyendo esa idea en la práctica. **Nota:** el archivo de plan que usa Claude Code en `~/.claude/plans/` se sobreescribe cada vez que se entra a modo plan para una tarea nueva — no sirve como referencia permanente. Este `ARCHITECTURE.md` es la única fuente de verdad estable sobre el estado del proyecto.
+
+---
+
+## Estado actual y próximos pasos
+
+*(Se actualiza cada vez que se cierra un hito — es lo primero que hay que leer al empezar una sesión nueva.)*
+
+**✅ Completado:**
+- Rebranding completo (paleta blanco/negro/gris/hueso, tipografías, logo recreado en SVG)
+- Backend: modelo de datos (Barber, Service, BarberSchedule, Booking), endpoints de lectura, algoritmo de disponibilidad (horarios tomados quedan visibles, no desaparecen), creación de reservas con anti-doble-reserva, confirmación por token (aceptar/rechazar)
+- Frontend: landing completa (hero, servicios, nosotros, horario) consumiendo el API real
+- Frontend: sección Profesionales (grilla de barberos, panel con foto grande + calendario + horarios + formulario de reserva, con transición de fundido al cambiar de barbero)
+- Frontend: página pública `/confirmar/:token` para que el barbero acepte/rechace
+- 3 fotos reales de barberos cargadas (Barbero 1-3; 4-6 siguen con placeholder)
+- Probado end-to-end con túnel público (demo real desde celular, con confirmación por WhatsApp)
+
+**🔜 Próximos pasos naturales:**
+- Despliegue real a producción (Neon + Render + Netlify) — hoy todo corre local con Docker
+- Completar datos reales pendientes: nombres, WhatsApp individual y fotos de los 6 barberos, dirección completa de "Manzo 520"
+- Endurecimiento: CORS al dominio real de producción, revisión responsive completa
+
+**📋 Ideas a futuro** (decididas explícitamente como fuera de alcance por ahora — no construir sin que el cliente las priorice primero):
+- Sistema de reseñas reales de clientes + ranking "mejor barbero del mes/semana" y estimación de ingresos (Paso 20)
+- Panel de administración: autogestión de horario por cada barbero, panel del dueño para ver/gestionar todo
+- PWA instalable + notificaciones automáticas
+- Pivote a SaaS multi-tenant (nota tras el Paso 9) — proyecto futuro aparte, no una feature de este
 
 ---
 
