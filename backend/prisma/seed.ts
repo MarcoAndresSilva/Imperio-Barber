@@ -60,11 +60,15 @@ const SERVICES = [
   },
 ];
 
-// PLACEHOLDER: nombres, fotos y WhatsApp reales pendientes del cliente (ver ARCHITECTURE.md, Paso 2).
+// PLACEHOLDER: nombres y WhatsApp reales de cada barbero pendientes del cliente (ver
+// ARCHITECTURE.md, Paso 2). Fotos: los primeros 3 ya son reales (frontend/public/barbers/);
+// falta el resto.
+const REAL_PHOTOS = 3;
 const BARBERS = Array.from({ length: 6 }, (_, i) => ({
   name: `Barbero ${i + 1}`,
   slug: `barbero-${i + 1}`,
-  photoUrl: `barbers/placeholder-${i + 1}.jpg`,
+  photoUrl:
+    i < REAL_PHOTOS ? `barbers/barbero-${i + 1}.jpg` : `barbers/placeholder-${i + 1}.jpg`,
   whatsappPhone: `5690000000${i + 1}`,
   ratingAverage: 4.8,
   ratingCount: 0,
