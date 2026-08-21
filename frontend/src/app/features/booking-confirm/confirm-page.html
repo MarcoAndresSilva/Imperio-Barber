@@ -1,0 +1,47 @@
+<div class="confirm-page">
+  <div class="card">
+    <app-logo variant="badge" class="logo" />
+
+    @switch (viewState()) {
+      @case ('loading') {
+        <p class="msg">Cargando…</p>
+      }
+      @case ('not-found') {
+        <h1>Solicitud no encontrada</h1>
+        <p class="msg">Revisa que el link esté completo, o contáctanos directamente si el problema sigue.</p>
+      }
+      @case ('ready') {
+        @if (booking(); as b) {
+          <div class="status-badge" [class]="b.status.toLowerCase()">{{ statusLabel(b.status) }}</div>
+          <h1>Solicitud de reserva</h1>
+
+          <dl class="details">
+            <div><dt>Barbero</dt><dd>{{ b.barber.name }}</dd></div>
+            <div><dt>Servicio</dt><dd>{{ b.service.name }} — {{ formatClp(b.priceClpSnapshot) }}</dd></div>
+            <div><dt>Cliente</dt><dd>{{ b.customerName }}</dd></div>
+            <div><dt>Teléfono</dt><dd>{{ b.customerPhone }}</dd></div>
+            <div><dt>Fecha</dt><dd>{{ formatDateEsCl(b.date) }}</dd></div>
+            <div><dt>Hora</dt><dd>{{ formatMinutesToHHMM(b.startMinute) }}</dd></div>
+          </dl>
+
+          @if (actionError()) {
+            <p class="error">{{ actionError() }}</p>
+          }
+
+          @if (b.status === 'PENDING') {
+            <div class="actions">
+              <button type="button" class="btn btn-solid" [disabled]="!!submitting()" (click)="onAccept()">
+                {{ submitting() === 'accept' ? 'Confirmando…' : 'Confirmar hora' }}
+              </button>
+              <button type="button" class="btn btn-outline" [disabled]="!!submitting()" (click)="onReject()">
+                {{ submitting() === 'reject' ? 'Rechazando…' : 'Rechazar' }}
+              </button>
+            </div>
+          } @else {
+            <p class="resolved-msg">{{ resolvedMessage(b.status) }}</p>
+          }
+        }
+      }
+    }
+  </div>
+</div>

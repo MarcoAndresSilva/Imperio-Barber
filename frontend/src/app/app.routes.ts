@@ -5,5 +5,9 @@ export const routes: Routes = [
     path: '',
     loadComponent: () => import('./features/landing/landing').then((m) => m.Landing),
   },
-  // '/confirmar/:token' se agrega en la Fase 7 del plan (página pública de aceptar/rechazar).
+  {
+    path: 'confirmar/:token',
+    loadComponent: () =>
+      import('./features/booking-confirm/confirm-page').then((m) => m.ConfirmPage),
+  },
 ];
