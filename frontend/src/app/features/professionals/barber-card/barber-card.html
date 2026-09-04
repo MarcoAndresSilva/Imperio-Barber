@@ -16,5 +16,7 @@
     }
   </div>
   <div class="name">{{ barber().name }}</div>
-  <div class="rating">★ {{ barber().ratingAverage.toFixed(1) }}</div>
+  @if (barber().ratingCount > 0) {
+    <div class="rating">★ {{ barber().ratingAverage.toFixed(1) }}</div>
+  }
 </button>

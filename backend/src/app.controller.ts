@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AppService } from './app.service';
 
 @Controller()
@@ -10,8 +11,10 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  // Sin rate limit: Render lo consulta periódicamente como health check.
+  @SkipThrottle()
   @Get('health')
-  getHealth(): { status: 'ok' } {
-    return { status: 'ok' };
+  getHealth(): Promise<{ status: 'ok'; db: 'up' }> {
+    return this.appService.getHealth();
   }
 }

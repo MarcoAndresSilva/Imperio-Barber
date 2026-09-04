@@ -27,17 +27,23 @@ Este documento es el registro de cómo se fue construyendo esa idea en la práct
 - Frontend: página pública `/confirmar/:token` para que el barbero acepte/rechace
 - 3 fotos reales de barberos cargadas (Barbero 1-3; 4-6 siguen con placeholder)
 - Probado end-to-end con túnel público (demo real desde celular, con confirmación por WhatsApp)
+- **Fase 1 del cierre** (Paso 23): rate limiting, health check con DB, fix de race en la confirmación, CORS que no falla en silencio, rating oculto sin reseñas, fix de `start:prod`
 
-**🔜 Próximos pasos naturales:**
-- Despliegue real a producción (Neon + Render + Netlify) — hoy todo corre local con Docker
-- Completar datos reales pendientes: nombres, WhatsApp individual y fotos de los 6 barberos, dirección completa de "Manzo 520"
-- Endurecimiento: CORS al dominio real de producción, revisión responsive completa
+**🔜 Próximos pasos — Plan de cierre v1** (detalle completo en la *Parte 4* de este archivo):
+Terminar Imperio Barber completo y desplegado para portafolio, antes de congelarlo como base de la
+plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). **El despliegue va al final** —
+primero se construye todo, incluido el panel de administración.
+- **Fase 2 — Autenticación (backend):** modelo `User`, `POST /auth/login` + JWT + guard, argon2, admin bootstrap por env.
+- **Fase 3 — API de administración (backend):** modelo `ScheduleException` (días libres), estado `CANCELLED`, `AdminModule` con mantenedores de reservas / barberos / servicios / horarios + reserva manual.
+- **Fase 4 — Panel de administración (frontend):** `AuthService` + interceptor + guard, `/admin/login`, layout con sidebar, dashboard + 5 mantenedores.
+- **Fase 5 — Datos reales + despliegue:** seed real (o placeholders limpios), Neon + `render.yaml` + `netlify.toml`, smoke test en producción.
+- **Fase 6 — CI/CD + pulido de portafolio:** GitHub Actions, README con links/capturas, OG tags, Lighthouse, tests e2e.
 
-**📋 Ideas a futuro** (decididas explícitamente como fuera de alcance por ahora — no construir sin que el cliente las priorice primero):
+**📋 Ideas a futuro** (fuera de alcance del cierre — no construir sin que el cliente las priorice):
 - Sistema de reseñas reales de clientes + ranking "mejor barbero del mes/semana" y estimación de ingresos (Paso 20)
-- Panel de administración: autogestión de horario por cada barbero, panel del dueño para ver/gestionar todo
-- PWA instalable + notificaciones automáticas
-- Pivote a SaaS multi-tenant (nota tras el Paso 9) — proyecto futuro aparte, no una feature de este
+- Login a nivel de cada barbero (el cierre trae solo la cuenta del dueño); PWA instalable + notificaciones automáticas
+- Subida real de fotos a object storage (el cierre usa un campo `photoUrl` de texto) — opcional al final de la Fase 6
+- Pivote a SaaS multi-tenant — ya tiene repo y roadmap propios en `../plataforma-reservas/`, deriva de este proyecto una vez cerrado
 
 ---
 
@@ -213,5 +219,106 @@ Antes de dar la fase por cerrada, se instaló Chromium vía Playwright y se leva
 - **Cambio real de algoritmo:** `computeAvailableSlots` (`backend/src/bookings/availability.ts`) antes solo calculaba los huecos libres y devolvía slots dentro de esos huecos — los horarios ocupados simplemente no existían en la respuesta. Se reescribió para generar **todos** los horarios candidatos del día (cada 15 min, dentro del horario de trabajo) y marcar cada uno con `available: true/false` según se solape o no con una reserva activa, en vez de descartar los ocupados. Los 8 tests unitarios se actualizaron para reflejar esto (incluyendo un caso nuevo: día completamente ocupado ahora devuelve todos los slots con `available: false`, no un array vacío).
 - **Frontend (`TimeSlots`):** ahora renderiza todos los slots recibidos; los no disponibles quedan deshabilitados (no clickeables), con el horario tachado y una etiqueta "Tomado" debajo, atenuados — cubre las tres variantes que el cliente dijo que le servían (tachado, etiqueta, o atenuado) usándolas juntas.
 - **Verificado en vivo:** se reservó un horario real y se confirmó que sigue apareciendo en la grilla como "Tomado" tachado, en vez de desaparecer.
+
+---
+
+## Parte 4: Cierre para portafolio y base del SaaS
+
+**Objetivo:** terminar Imperio Barber como proyecto **completo y desplegado**, listo para portafolio,
+antes de congelarlo como base de la plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`).
+**El despliegue va al final** — primero se construye todo, incluido el panel de administración; recién
+después se despliega, con datos placeholder si los reales de la barbería no llegan a tiempo.
+
+### Decisiones del cierre (confirmadas 2026-09-04, no reabrir)
+
+| # | Tema | Decisión |
+|---|------|----------|
+| 1 | Alcance del login del panel | **Solo el dueño, 1 cuenta rol `ADMIN`.** Los barberos siguen usando el link con token. Login por barbero = mejora futura. |
+| 2 | Fotos de barberos en el panel | **v1: campo `photoUrl` de texto.** Subida real de archivos (Cloudflare R2 / Cloudinary con URL prefirmada) como último paso opcional (Fase 6). |
+| 3 | CI/CD | **Incluir** GitHub Actions (lint + tests backend + build frontend en cada push). Deploy lo siguen haciendo Render/Netlify por autodeploy. |
+
+### Fases del cierre
+
+- **Fase 1 — Hardening y bugs (backend):** ✅ completada — ver Paso 23.
+- **Fase 2 — Autenticación (backend):**
+  - Deps: `@nestjs/jwt`, `@nestjs/passport`, `passport-jwt`, `argon2`.
+  - Modelo `User` (`email` único, `passwordHash`, `name`, `role: ADMIN`, timestamps) + migración.
+  - `AuthModule`: `POST /auth/login` (email+password → `{ accessToken }`, expira ~8 h), `GET /auth/me`, `JwtStrategy`, `JwtAuthGuard`. Token plano en `localStorage` (refresh token = mejora futura).
+  - Admin bootstrap: script `prisma/seed-admin.ts` que crea/actualiza al dueño desde `ADMIN_EMAIL` + `ADMIN_PASSWORD` de env (hash argon2 al vuelo), idempotente. Sin credenciales en git.
+  - `JWT_SECRET` a `.env` / `.env.example`. Throttler en `/auth/login`.
+  - Tests: login OK · password mala → 401 · token inválido → 401 · ruta protegida sin token → 401.
+- **Fase 3 — API de administración (backend):**
+  - Nuevo modelo `ScheduleException` (`barberId`, `date` `@db.Date`, `reason?`; índice `[barberId, date]`) — días libres / vacaciones / feriados.
+  - Estado `CANCELLED` en el enum `BookingStatus` (cancelar desde el panel una reserva ya `CONFIRMED`).
+  - Extender `availability.ts` para restar también las `ScheduleException` del día + actualizar sus tests.
+  - `AdminModule` (todo con `JwtAuthGuard`, prefijo `/admin`, DTOs validados):
+    - `GET /admin/bookings?date=&status=&barberId=` — listado con barbero + servicio.
+    - `PATCH /admin/bookings/:id/confirm` · `/reject` · `/cancel`.
+    - `POST /admin/bookings` — reserva manual (walk-in / teléfono): queda `CONFIRMED` directo, sin link de WhatsApp.
+    - `GET/POST/PATCH/DELETE /admin/barbers` y `/admin/services` — CRUD, delete = soft (`active=false`).
+    - `PUT /admin/barbers/:id/schedule` — upsert de las 7 filas del horario semanal.
+    - `GET/POST/DELETE /admin/barbers/:id/time-off` — CRUD de `ScheduleException`.
+  - Tests: cada grupo con y sin auth · una `ScheduleException` bloquea los slots de ese día.
+- **Fase 4 — Panel de administración (frontend):**
+  - `AuthService` (signals): `login()`, `logout()`, token en `localStorage`, `isAuthenticated`.
+  - HTTP interceptor (agrega `Authorization: Bearer`; en 401 limpia sesión → `/admin/login`) + `authGuard` funcional en `/admin/**`.
+  - Consolidar `date.util` del frontend: mover `todayInChileStr` / `weekdayFromDateStr` a `core/utils/`; el resto del calendario queda en `features/professionals/`.
+  - Rutas lazy: `/admin/login`; `/admin` (layout con sidebar, fuera del header/footer de marketing — mismo criterio que `/confirmar` con `isStandalonePage`) → **Dashboard** (reservas de hoy + contadores), **Reservas** (tabla con filtros + confirmar/rechazar/cancelar + "nueva reserva manual"), **Barberos**, **Servicios**, **Horarios** (grilla semanal + días libres), **Cuenta** (cambio de contraseña).
+  - Reutiliza `formatClp`, utilidades de fecha y modelos existentes.
+- **Fase 5 — Datos reales + despliegue:**
+  - `seed.ts` con datos reales (nombres de pila mínimo; WhatsApp individual o uno único de la barbería como fallback; dirección "Manzo 520" completa). Si no llegan: placeholders limpios y se carga el resto por el panel.
+  - **Neon**: crear proyecto → `prisma migrate deploy` → seed → `seed-admin`.
+  - **Render** (backend): `render.yaml` — build `npm ci && npx prisma generate && npm run build`; preDeploy `npx prisma migrate deploy`; start `node dist/src/main`; health check `/health`; env vars (`DATABASE_URL`, `DIRECT_URL`, `FRONTEND_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `BOOKING_PENDING_TTL_MINUTES`, `NODE_ENV=production`). Plan Starter (sin cold start).
+  - **Netlify** (frontend): `netlify.toml` — build `npm ci && npm run build`, publish `dist/frontend/browser`, redirect SPA `/* /index.html 200`. `environment.prod.ts` con la URL real de Render.
+  - Actualizar `.env.example`. **Smoke test en producción**: landing · crear reserva · llega WhatsApp · `/confirmar` · `/admin/login` · panel end-to-end.
+- **Fase 6 — CI/CD + pulido de portafolio:**
+  - **GitHub Actions**: en cada push/PR a `main` → backend `npm ci` + `lint` + `test`; frontend `npm ci` + `build`.
+  - **README**: reemplazar "Demo en vivo 🔜" por links reales + GIF/capturas + credenciales de un usuario demo de solo lectura.
+  - Meta tags OG/Twitter + `og:image` en `index.html`. Pasada de Lighthouse. Un par de tests e2e (supertest) del ciclo de reserva.
+  - **Opcional**: subida real de fotos a object storage (decisión #2).
+
+### Paso 23: Fase 1 — Hardening y bugs previos al panel de administración
+
+- **Objetivo:** endurecer el backend antes de agregarle superficie (auth + panel), y cerrar bugs que
+  habrían mordido en producción.
+- **Rate limiting (`@nestjs/throttler` 6.5):** `ThrottlerModule.forRoot([{ ttl: 60s, limit: 60 }])` +
+  `ThrottlerGuard` global (`APP_GUARD` en `app.module.ts`). `POST /bookings` endurecido con
+  `@Throttle({ default: { limit: 5, ttl: 600s } })` — crear reservas bloquea horarios, así que se
+  limita fuerte. `/health` marcado `@SkipThrottle()` (Render lo consulta seguido). Storage en memoria:
+  suficiente para una sola instancia; si algún día hay más de una, migrar a storage compartido.
+- **Fix de race en `accept`/`reject`** (`bookings.service.ts`): el flujo era "leo estado → si es
+  PENDING, actualizo" — dos requests casi simultáneos pasaban los dos el chequeo. Se extrajo a un
+  método `transition(token, to)` que hace un `updateMany({ where: { confirmationToken, status:
+  'PENDING' }, data: { status: to } })` atómico y valida `count === 1`; el segundo request obtiene
+  `count: 0` → 409. Se mantiene el `findByTokenOrThrow` + `applyLazyExpiration` previos para el 404 y
+  el mensaje correcto cuando ya expiró.
+- **`/health` con chequeo real de DB:** antes devolvía `{status:'ok'}` fijo (el proceso vive). Ahora
+  `AppService.getHealth()` hace `prisma.$queryRaw\`SELECT 1\``; si falla, `503` con `{status:'error',
+  db:'down'}`. Así el health check de Render detecta una DB caída.
+- **CORS sin fallo silencioso** (`main.ts`): si falta `FRONTEND_URL` con `NODE_ENV=production`, ahora
+  `bootstrap()` lanza error en vez de caer en silencio a `http://localhost:4200` (que dejaba el
+  frontend de producción bloqueado sin ningún error visible).
+- **Rating oculto sin reseñas** (`barber-card.html`, `professionals.html`): se pintaba "★ 4.8" con
+  `ratingCount: 0` (valor fijo del seed, sin reseñas reales detrás). Ahora el bloque de rating solo se
+  renderiza si `ratingCount > 0` — coherente con el Paso 20.
+- **Bug real encontrado al probar el arranque de producción:** `npm run start:prod` era
+  `node dist/main`, pero el build genera `dist/src/main.js`. Causa: `bookings.service.ts` importa el
+  cliente Prisma generado desde `../../generated/prisma/client`, así que TS mete `backend/generated/`
+  en el programa y la raíz común de salida pasa de `src/` a `backend/`, quedando el entrypoint en
+  `dist/src/main.js`. Habría roto el arranque en Render. Corregido a `node dist/src/main`.
+- **Jest — `moduleNameMapper` para el cliente Prisma generado:** agregar un test que importa
+  `PrismaService` reventaba con `Cannot find module './internal/class.js'` (el mismo choque de
+  extensiones `.js`→`.ts` del Paso 11, ahora en los tests — `ts-jest` no resuelve ese mapeo). Se
+  agregó `"moduleNameMapper": { "^(\\.{1,2}/.*)\\.js$": "$1" }` al config de Jest en `package.json`.
+  Desbloquea los tests que toquen Prisma (los de auth vienen en la Fase 2).
+- **Verificación real (no solo build):**
+  - `npm run build` OK · `npm test` 15/15 (se sumaron 2 tests de `/health`: DB arriba → `ok`, DB
+    caída → `503`).
+  - En vivo contra el backend levantado con `start:prod`: `/health` → `{status:'ok',db:'up'}` y sin
+    throttle (3×200); `POST /bookings` ×8 rápido → `400 400 400 400 400 429 429 429`; token falso →
+    `404`; header `X-RateLimit-Limit: 60` presente en `/barbers`.
+  - Ciclo completo: crear reserva real → `accept` #1 → `200` (`CONFIRMED`) → `accept` #2 → `409`
+    ("ya está en estado CONFIRMED") → `reject` → `409`. El mensaje de WhatsApp con la fecha en
+    español (martes 8 de septiembre) confirmó de paso que el fix de fecha del Paso 14 sigue en pie.
 
 _(se sigue completando a medida que se construye)_

@@ -123,28 +123,34 @@ export class BookingsService {
   }
 
   async accept(token: string) {
-    const booking = await this.applyLazyExpiration(await this.findByTokenOrThrow(token));
-
-    if (booking.status !== 'PENDING') {
-      throw new ConflictException(`Esta reserva ya está en estado ${booking.status}.`);
-    }
-
-    return this.prisma.booking.update({
-      where: { confirmationToken: token },
-      data: { status: 'CONFIRMED' },
-    });
+    return this.transition(token, 'CONFIRMED');
   }
 
   async reject(token: string) {
-    const booking = await this.applyLazyExpiration(await this.findByTokenOrThrow(token));
+    return this.transition(token, 'REJECTED');
+  }
 
-    if (booking.status !== 'PENDING') {
-      throw new ConflictException(`Esta reserva ya está en estado ${booking.status}.`);
+  /** Cambia el estado de una reserva PENDING de forma atómica: si dos requests entran
+   * casi a la vez, solo uno matchea `status: 'PENDING'` en el updateMany y el otro
+   * recibe count 0 -> 409 (antes ambos podían pasar el check-then-update). */
+  private async transition(token: string, to: 'CONFIRMED' | 'REJECTED') {
+    // 404 si no existe; expira en el acto si ya venció, para dar el mensaje correcto.
+    await this.applyLazyExpiration(await this.findByTokenOrThrow(token));
+
+    const { count } = await this.prisma.booking.updateMany({
+      where: { confirmationToken: token, status: 'PENDING' },
+      data: { status: to },
+    });
+
+    if (count === 0) {
+      const current = await this.findByTokenOrThrow(token);
+      throw new ConflictException(
+        `Esta reserva ya está en estado ${current.status}.`,
+      );
     }
 
-    return this.prisma.booking.update({
+    return this.prisma.booking.findUnique({
       where: { confirmationToken: token },
-      data: { status: 'REJECTED' },
     });
   }
 

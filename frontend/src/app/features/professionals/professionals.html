@@ -39,12 +39,14 @@
             }
           </div>
           <h3>{{ barber.name }}</h3>
-          <div class="stars" [attr.aria-label]="barber.ratingAverage + ' de 5'">
-            @for (i of [0, 1, 2, 3, 4]; track i) {
-              <span [class.filled]="i < filledStars()">★</span>
-            }
-            <span class="rating-number">{{ barber.ratingAverage.toFixed(1) }}</span>
-          </div>
+          @if (barber.ratingCount > 0) {
+            <div class="stars" [attr.aria-label]="barber.ratingAverage + ' de 5'">
+              @for (i of [0, 1, 2, 3, 4]; track i) {
+                <span [class.filled]="i < filledStars()">★</span>
+              }
+              <span class="rating-number">{{ barber.ratingAverage.toFixed(1) }}</span>
+            </div>
+          }
           @if (barber.bio) {
             <p class="bio">{{ barber.bio }}</p>
           }

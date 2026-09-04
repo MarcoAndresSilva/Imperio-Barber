@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
@@ -6,6 +7,9 @@ import { CreateBookingDto } from './dto/create-booking.dto';
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
+  // Anti-spam: crear reservas bloquea horarios, así que se limita fuerte
+  // (5 cada 10 min por IP) por encima del límite global.
+  @Throttle({ default: { limit: 5, ttl: 600_000 } })
   @Post()
   create(@Body() dto: CreateBookingDto) {
     return this.bookingsService.create(dto);
