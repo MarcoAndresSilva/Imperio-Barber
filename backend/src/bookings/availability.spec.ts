@@ -15,7 +15,7 @@ describe('computeAvailableSlots', () => {
     expect(slots).toEqual([]);
   });
 
-  it('día laboral sin reservas: genera slots cada 15 min, todos disponibles', () => {
+  it('día laboral sin reservas: genera slots cada hora en punto, todos disponibles', () => {
     const slots = computeAvailableSlots({
       schedule: FULL_DAY,
       busy: [],
@@ -24,9 +24,9 @@ describe('computeAvailableSlots', () => {
       nowMinute: 0,
     });
 
-    expect(slots[0]).toEqual({ startMinute: 600, endMinute: 630, available: true });
-    expect(slots[1]).toEqual({ startMinute: 615, endMinute: 645, available: true });
-    expect(slots[slots.length - 1]).toEqual({ startMinute: 1170, endMinute: 1200, available: true });
+    expect(slots[0]).toEqual({ startMinute: 600, endMinute: 630, available: true }); // 10:00
+    expect(slots[1]).toEqual({ startMinute: 660, endMinute: 690, available: true }); // 11:00
+    expect(slots[slots.length - 1]).toEqual({ startMinute: 1140, endMinute: 1170, available: true }); // 19:00
     expect(slots.every((s) => s.available)).toBe(true);
   });
 
@@ -72,20 +72,22 @@ describe('computeAvailableSlots', () => {
       schedule: FULL_DAY,
       busy: [
         { startMinute: 600, endMinute: 700 },
-        { startMinute: 650, endMinute: 750 }, // se superpone con la anterior
+        { startMinute: 650, endMinute: 750 }, // se superpone con la anterior -> fusionado 600-750
       ],
       serviceDurationMinutes: 30,
       isToday: false,
       nowMinute: 0,
     });
 
+    // Con slots cada hora (600, 660, 720, 780…), el primero que cae fuera del
+    // tramo ocupado fusionado (600-750) es el de las 13:00 (780).
     const firstAvailable = slots.find((s) => s.available);
-    expect(firstAvailable?.startMinute).toBe(750);
-    expect(slots.filter((s) => s.startMinute < 750).every((s) => !s.available)).toBe(true);
+    expect(firstAvailable?.startMinute).toBe(780);
+    expect(slots.filter((s) => s.startMinute < 780).every((s) => !s.available)).toBe(true);
   });
 
   it('corte por "hoy": no ofrece horarios que ya pasaron ni dentro del margen mínimo', () => {
-    // Son las 14:32 (872 min) -> nada antes de 14:42, redondeado a slot de 15 min -> 14:45
+    // Son las 14:32 (872 min) -> nada antes de 14:42, redondeado a la próxima hora en punto -> 15:00
     const slots = computeAvailableSlots({
       schedule: FULL_DAY,
       busy: [],
@@ -94,7 +96,7 @@ describe('computeAvailableSlots', () => {
       nowMinute: 14 * 60 + 32,
     });
 
-    expect(slots[0]).toEqual({ startMinute: 885, endMinute: 915, available: true }); // 14:45
+    expect(slots[0]).toEqual({ startMinute: 900, endMinute: 930, available: true }); // 15:00
   });
 
   it('corte por "hoy" cuando ya no queda tiempo hábil en el día: no devuelve horarios', () => {

@@ -15,7 +15,10 @@ export interface AvailabilitySlot {
   available: boolean;
 }
 
-const SLOT_STEP_MINUTES = 15;
+// Antes cada 15 min (mucha oferta de horarios muy pegados entre sí, se veía
+// como una lista interminable en el selector). El cliente pidió que quede
+// cada hora en punto — se ve más limpio y es como igual funciona una barbería.
+const SLOT_STEP_MINUTES = 60;
 const MIN_LEAD_MINUTES = 10;
 
 function mergeBusyIntervals(
@@ -45,7 +48,7 @@ function mergeBusyIntervals(
 
 /**
  * Función pura: calcula TODOS los horarios candidatos de un barbero para un día
- * (cada 15 min, dentro de su horario de trabajo), marcando cuáles ya están
+ * (cada hora en punto, dentro de su horario de trabajo), marcando cuáles ya están
  * ocupados por una reserva activa — no los descarta, para que el frontend pueda
  * mostrarlos igual (deshabilitados) en vez de hacerlos desaparecer. No toca la
  * base de datos ni conoce nada de NestJS/Prisma.

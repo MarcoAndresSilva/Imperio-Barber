@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
+import { nowInChile } from '../common/chile-time';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   Barber,
@@ -41,6 +42,19 @@ export class BookingsService {
    * el panel de administración (Fase 3) la usa para que quede CONFIRMED directo,
    * sin generar link de WhatsApp (el dueño ya sabe que la creó). */
   async create(dto: CreateBookingDto, opts: { byStaff?: boolean } = {}) {
+    // Defensa en profundidad: la UI ya no ofrece fechas pasadas ni horarios ya
+    // pasados hoy (no aparecen en /availability), pero eso no evita que alguien
+    // le pegue directo a la API con esos valores.
+    const { dateStr: todayChile, minuteOfDay: nowMinuteChile } = nowInChile();
+    if (dto.date < todayChile) {
+      throw new BadRequestException(
+        'No se puede reservar en una fecha pasada.',
+      );
+    }
+    if (dto.date === todayChile && dto.startMinute < nowMinuteChile) {
+      throw new BadRequestException('Ese horario ya pasó.');
+    }
+
     const [barber, service] = await Promise.all([
       this.prisma.barber.findUnique({ where: { id: dto.barberId } }),
       this.prisma.service.findUnique({ where: { id: dto.serviceId } }),
@@ -54,12 +68,25 @@ export class BookingsService {
     }
 
     const weekday = weekdayFromDateStr(dto.date);
-    const schedule = await this.prisma.barberSchedule.findUnique({
-      where: { barberId_weekday: { barberId: barber.id, weekday } },
-    });
+    const dateValue = dateFromDateStr(dto.date);
+    const [schedule, exception] = await Promise.all([
+      this.prisma.barberSchedule.findUnique({
+        where: { barberId_weekday: { barberId: barber.id, weekday } },
+      }),
+      this.prisma.scheduleException.findUnique({
+        where: { barberId_date: { barberId: barber.id, date: dateValue } },
+      }),
+    ]);
 
     if (!schedule || !schedule.isWorkingDay) {
       throw new BadRequestException('El barbero no atiende ese día.');
+    }
+    // Día libre cargado desde el panel (Fase 3) — el mismo criterio que ya
+    // aplica AvailabilityService al leer disponibilidad, ahora también al crear.
+    if (exception) {
+      throw new BadRequestException(
+        'El barbero tiene ese día bloqueado (día libre).',
+      );
     }
 
     const endMinute = dto.startMinute + service.durationMinutes;
@@ -74,7 +101,6 @@ export class BookingsService {
     }
 
     const now = new Date();
-    const dateValue = dateFromDateStr(dto.date);
     const expiresAt = new Date(now.getTime() + this.pendingTtlMinutes * 60_000);
     const confirmationToken = randomUUID();
     const initialStatus: BookingStatus = opts.byStaff ? 'CONFIRMED' : 'PENDING';

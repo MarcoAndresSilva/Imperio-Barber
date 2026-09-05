@@ -31,17 +31,24 @@ Este documento es el registro de cómo se fue construyendo esa idea en la práct
 - **Fase 2 del cierre** (Paso 24): modelo `User`, `AuthModule` (`POST /auth/login` + JWT 8 h + `JwtAuthGuard` + `GET /auth/me`), argon2, throttle en login, script `seed:admin`
 - **Fase 3 del cierre** (Paso 25): modelo `ScheduleException` (días libres) integrado a la disponibilidad, estado `CANCELLED`, `AdminModule` completo (mantenedores de reservas/barberos/servicios/horarios/días libres + reserva manual), todo protegido por `JwtAuthGuard`
 - **Fase 4 del cierre** (Paso 26): **panel de administración real** — `/admin/login` + `/admin` (dashboard, reservas, barberos, servicios, horarios, cuenta), primera vez que el cierre se ve en pantalla
+- **Ajustes post-Fase 4** (Paso 27, probando el panel de verdad): Reservas arranca sin filtro de fecha (antes se veía "vacía" si no había nada hoy); sección "Usuarios del panel" en Cuenta (multi-usuario, mismo rol `ADMIN` — "Opción A"); horarios candidatos cada hora en punto en vez de cada 15 min; `BookingsService.create()` ahora también rechaza fecha pasada, horario ya pasado hoy, y días libres (antes la API los aceptaba si le pegabas directo, aunque la UI ya no los ofrecía)
+
+**⚠️ Estado del repo al cerrar esta sesión (2026-09-05):** commiteado y pusheado hasta Fases 2, 3 y 4
+completas (commits `01d25c0`, `c99a03b`, `8326307` — este último ya incluye el fix del filtro de Reservas
+y "Usuarios del panel"). **Sin commitear:** solo los 3 fixes de `bookings.service.ts`/`availability.ts`
+(horarios cada hora + guardas de fecha pasada/día libre) — mensaje de commit sugerido al final del Paso 27.
 
 **🔜 Próximos pasos — Plan de cierre v1** (detalle completo en la *Parte 4* de este archivo):
 Terminar Imperio Barber completo y desplegado para portafolio, antes de congelarlo como base de la
 plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). **El despliegue va al final** —
 primero se construye todo, incluido el panel de administración.
 - **Fase 5 — Datos reales + despliegue:** seed real (o placeholders limpios), Neon + `render.yaml` + `netlify.toml`, smoke test en producción.
-- **Fase 6 — CI/CD + pulido de portafolio:** GitHub Actions, README con links/capturas, OG tags, Lighthouse, tests e2e.
+- **Fase 6 — CI/CD + pulido de portafolio:** GitHub Actions, README con links/capturas, OG tags, Lighthouse, tests e2e. También quedó anotado ahí un detalle cosmético menor: la tabla de Reservas corta la última columna en viewports angostos sin indicar que hay scroll horizontal.
 
 **📋 Ideas a futuro** (fuera de alcance del cierre — no construir sin que el cliente las priorice):
 - Sistema de reseñas reales de clientes + ranking "mejor barbero del mes/semana" y estimación de ingresos (Paso 20)
-- Login a nivel de cada barbero (el cierre trae solo la cuenta del dueño); PWA instalable + notificaciones automáticas
+- **"Opción B" (pedida, pospuesta a otra sesión):** cuentas por barbero con permisos acotados (cada uno ve/gestiona solo su propia agenda y horario) — hoy todos los usuarios del panel tienen el mismo rol `ADMIN` (Paso 27, "Opción A"). Requiere nuevo rol, permisos por recurso, más pantallas.
+- PWA instalable + notificaciones automáticas
 - Subida real de fotos a object storage (el cierre usa un campo `photoUrl` de texto) — opcional al final de la Fase 6
 - Pivote a SaaS multi-tenant — ya tiene repo y roadmap propios en `../plataforma-reservas/`, deriva de este proyecto una vez cerrado
 
@@ -462,5 +469,42 @@ después se despliega, con datos placeholder si los reales de la barbería no ll
   sale marcado "(tú)" y sin botón Eliminar; se crea un segundo usuario, **se loguea de verdad con él**
   (no solo aparece en la lista), y se elimina de vuelta con el admin original. Usuario de prueba
   borrado al terminar.
+- **Pedido del cliente, probando el panel:** el desplegable de horarios (público y el de la reserva
+  manual del panel) se veía con demasiadas opciones — un horario 10:00-20:00 ofrecía 40 candidatos cada
+  15 min. Se cambió `SLOT_STEP_MINUTES` (`bookings/availability.ts`) de `15` a `60`: ahora los horarios
+  candidatos son cada hora en punto, en las dos superficies a la vez (comparten el mismo endpoint
+  `GET /barbers/:id/availability`). Se actualizaron los 3 tests que dependían del paso de 15 min.
+  **Verificado en vivo:** el mismo horario 10:00-20:00 ahora ofrece 10 candidatos (10:00 a 19:00) en vez
+  de 40.
+- **Bug real encontrado auditando `BookingsService.create()`** (pedido del usuario: revisar qué podía
+  estar faltando en el panel): la creación de una reserva —tanto la pública como la manual del panel—
+  nunca chequeaba los **días libres** (`ScheduleException`, Fase 3) ni que la fecha/hora no fueran
+  **pasadas**. La UI ya evitaba ambos casos indirectamente (no ofrece horarios para un día libre ni
+  para el pasado), pero pegándole directo a la API (`POST /bookings` o `POST /admin/bookings`) igual se
+  podía crear la reserva. Se agregaron los mismos chequeos que ya usa `AvailabilityService` al leer:
+  `dto.date < hoy` → 400; `dto.date === hoy && dto.startMinute < ahora` → 400; existe una
+  `ScheduleException` para esa fecha → 400. **Verificado en vivo** contra el dev server del usuario:
+  los 3 casos devuelven 400 con mensaje claro; se limpió el día libre de prueba usado para el tercer
+  caso.
+
+**Commit sugerido para estos 3 fixes** (`backend/src/bookings/availability.ts`,
+`backend/src/bookings/availability.spec.ts`, `backend/src/bookings/bookings.service.ts`,
+`ARCHITECTURE.md`):
+
+```
+fix(backend): horarios cada hora en punto + guardas de fecha pasada y día libre
+
+- SLOT_STEP_MINUTES de 15 a 60: menos opciones (y más razonables) en el
+  selector de horario, público y en la reserva manual del panel.
+- BookingsService.create() ahora rechaza (400): fecha pasada, horario ya
+  pasado si la fecha es hoy, y días con ScheduleException (día libre) — antes
+  la API los aceptaba si se llamaba directo, aunque la UI ya no los ofrecía.
+- 3 tests de availability.spec.ts actualizados al nuevo paso de 60 min.
+- ARCHITECTURE.md: Paso 27 (incluye también fixes ya commiteados en 8326307:
+  filtro de Reservas y "Usuarios del panel").
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_019hon2UMux6EjKH55pBYQ3M
+```
 
 _(se sigue completando a medida que se construye)_
