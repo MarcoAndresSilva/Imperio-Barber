@@ -56,7 +56,8 @@ h1 {
   }
 
   &.rejected,
-  &.expired {
+  &.expired,
+  &.cancelled {
     border-color: #e08585;
     color: #e08585;
   }

@@ -57,6 +57,8 @@ export class ConfirmPage {
         return 'Rechazada';
       case 'EXPIRED':
         return 'Expirada';
+      case 'CANCELLED':
+        return 'Cancelada';
     }
   }
 
@@ -68,6 +70,8 @@ export class ConfirmPage {
         return 'Rechazaste esta solicitud — el horario quedó liberado para otros clientes.';
       case 'EXPIRED':
         return 'Esta solicitud expiró antes de resolverse — el horario ya se liberó automáticamente.';
+      case 'CANCELLED':
+        return 'Esta hora fue cancelada por la barbería — el horario quedó liberado.';
       default:
         return '';
     }

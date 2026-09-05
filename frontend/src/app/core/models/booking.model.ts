@@ -14,7 +14,12 @@ export interface CreateBookingResponse {
   whatsappUrl: string;
 }
 
-export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'EXPIRED';
+export type BookingStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'CANCELLED';
 
 export interface BookingDetail {
   id: string;

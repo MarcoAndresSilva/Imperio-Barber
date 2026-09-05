@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { ServicesModule } from './services/services.module';
 import { BarbersModule } from './barbers/barbers.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { BookingsModule } from './bookings/bookings.module';
     ServicesModule,
     BarbersModule,
     BookingsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -16,6 +16,7 @@ enum BookingStatus {
   CONFIRMED
   REJECTED
   EXPIRED
+  CANCELLED
 }
 
 enum Role {
@@ -49,8 +50,9 @@ model Barber {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  schedules BarberSchedule[]
-  bookings  Booking[]
+  schedules          BarberSchedule[]
+  bookings           Booking[]
+  scheduleExceptions ScheduleException[]
 
   @@map("barbers")
 }
@@ -84,6 +86,20 @@ model BarberSchedule {
 
   @@unique([barberId, weekday])
   @@map("barber_schedules")
+}
+
+/// Día puntual en que un barbero NO atiende (día libre, vacaciones, feriado), por
+/// encima de su horario semanal recurrente. Bloquea el día completo — no horas sueltas.
+model ScheduleException {
+  id        String   @id @default(uuid())
+  barberId  String
+  barber    Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  date      DateTime @db.Date
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([barberId, date])
+  @@map("schedule_exceptions")
 }
 
 model Booking {

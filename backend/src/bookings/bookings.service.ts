@@ -8,7 +8,12 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { Barber, BookingStatus, Service } from '../../generated/prisma/client';
+import {
+  Barber,
+  BookingStatus,
+  Prisma,
+  Service,
+} from '../../generated/prisma/client';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { activeBookingsWhere } from './active-bookings.query';
 import {
@@ -32,7 +37,10 @@ export class BookingsService {
     return raw ? Number(raw) : 25;
   }
 
-  async create(dto: CreateBookingDto) {
+  /** `opts.byStaff`: reserva manual cargada desde el panel (walk-in / teléfono) —
+   * el panel de administración (Fase 3) la usa para que quede CONFIRMED directo,
+   * sin generar link de WhatsApp (el dueño ya sabe que la creó). */
+  async create(dto: CreateBookingDto, opts: { byStaff?: boolean } = {}) {
     const [barber, service] = await Promise.all([
       this.prisma.barber.findUnique({ where: { id: dto.barberId } }),
       this.prisma.service.findUnique({ where: { id: dto.serviceId } }),
@@ -56,7 +64,10 @@ export class BookingsService {
 
     const endMinute = dto.startMinute + service.durationMinutes;
 
-    if (dto.startMinute < schedule.startMinute || endMinute > schedule.endMinute) {
+    if (
+      dto.startMinute < schedule.startMinute ||
+      endMinute > schedule.endMinute
+    ) {
       throw new BadRequestException(
         'El horario elegido está fuera del rango de atención de ese día.',
       );
@@ -66,6 +77,7 @@ export class BookingsService {
     const dateValue = dateFromDateStr(dto.date);
     const expiresAt = new Date(now.getTime() + this.pendingTtlMinutes * 60_000);
     const confirmationToken = randomUUID();
+    const initialStatus: BookingStatus = opts.byStaff ? 'CONFIRMED' : 'PENDING';
 
     const booking = await this.runWithConflictHandling(() =>
       this.prisma.$transaction(
@@ -79,7 +91,9 @@ export class BookingsService {
           });
 
           if (overlapping) {
-            throw new ConflictException('Ese horario ya no está disponible, elige otro.');
+            throw new ConflictException(
+              'Ese horario ya no está disponible, elige otro.',
+            );
           }
 
           return tx.booking.create({
@@ -92,6 +106,7 @@ export class BookingsService {
               startMinute: dto.startMinute,
               endMinute,
               priceClpSnapshot: service.priceClp,
+              status: initialStatus,
               confirmationToken,
               expiresAt,
             },
@@ -104,54 +119,81 @@ export class BookingsService {
     return {
       bookingId: booking.id,
       confirmationToken: booking.confirmationToken,
+      status: booking.status,
       expiresAt: booking.expiresAt,
-      whatsappUrl: this.buildWhatsappUrl({
-        barber,
-        service,
-        dateStr: dto.date,
-        startMinute: dto.startMinute,
-        customerName: dto.customerName,
-        customerPhone: dto.customerPhone,
-        confirmationToken,
-      }),
+      // Una reserva manual del panel no necesita avisarle al barbero por WhatsApp
+      // (él mismo la está cargando).
+      whatsappUrl: opts.byStaff
+        ? null
+        : this.buildWhatsappUrl({
+            barber,
+            service,
+            dateStr: dto.date,
+            startMinute: dto.startMinute,
+            customerName: dto.customerName,
+            customerPhone: dto.customerPhone,
+            confirmationToken,
+          }),
     };
   }
 
   async getByToken(token: string) {
-    const booking = await this.findByTokenOrThrow(token);
+    const booking = await this.findOrThrow({ confirmationToken: token });
     return this.applyLazyExpiration(booking);
   }
 
   async accept(token: string) {
-    return this.transition(token, 'CONFIRMED');
+    return this.transition(
+      { confirmationToken: token },
+      'PENDING',
+      'CONFIRMED',
+    );
   }
 
   async reject(token: string) {
-    return this.transition(token, 'REJECTED');
+    return this.transition({ confirmationToken: token }, 'PENDING', 'REJECTED');
   }
 
-  /** Cambia el estado de una reserva PENDING de forma atómica: si dos requests entran
-   * casi a la vez, solo uno matchea `status: 'PENDING'` en el updateMany y el otro
-   * recibe count 0 -> 409 (antes ambos podían pasar el check-then-update). */
-  private async transition(token: string, to: 'CONFIRMED' | 'REJECTED') {
+  // --- Usadas por el panel de administración (Fase 3): mismo mecanismo atómico
+  // que accept/reject, pero por id de reserva en vez de token público. ---
+
+  async confirmById(id: string) {
+    return this.transition({ id }, 'PENDING', 'CONFIRMED');
+  }
+
+  async rejectById(id: string) {
+    return this.transition({ id }, 'PENDING', 'REJECTED');
+  }
+
+  async cancelById(id: string) {
+    return this.transition({ id }, 'CONFIRMED', 'CANCELLED');
+  }
+
+  /** Cambia el estado de una reserva de `from` a `to` de forma atómica: el
+   * `updateMany` lleva `status: from` en el `where`, así que si dos requests entran
+   * casi a la vez solo uno matchea y el otro recibe `count: 0` -> 409 (antes el
+   * check-then-update dejaba pasar a los dos). */
+  private async transition(
+    where: Prisma.BookingWhereUniqueInput,
+    from: BookingStatus,
+    to: BookingStatus,
+  ) {
     // 404 si no existe; expira en el acto si ya venció, para dar el mensaje correcto.
-    await this.applyLazyExpiration(await this.findByTokenOrThrow(token));
+    await this.applyLazyExpiration(await this.findOrThrow(where));
 
     const { count } = await this.prisma.booking.updateMany({
-      where: { confirmationToken: token, status: 'PENDING' },
+      where: { ...where, status: from },
       data: { status: to },
     });
 
     if (count === 0) {
-      const current = await this.findByTokenOrThrow(token);
+      const current = await this.findOrThrow(where);
       throw new ConflictException(
         `Esta reserva ya está en estado ${current.status}.`,
       );
     }
 
-    return this.prisma.booking.findUnique({
-      where: { confirmationToken: token },
-    });
+    return this.findOrThrow(where);
   }
 
   /** Barrido de respaldo: el chequeo lazy libera el horario al instante para quien consulte,
@@ -164,9 +206,9 @@ export class BookingsService {
     });
   }
 
-  private async findByTokenOrThrow(token: string) {
+  private async findOrThrow(where: Prisma.BookingWhereUniqueInput) {
     const booking = await this.prisma.booking.findUnique({
-      where: { confirmationToken: token },
+      where,
       include: { barber: true, service: true },
     });
 
@@ -177,14 +219,20 @@ export class BookingsService {
     return booking;
   }
 
-  private async applyLazyExpiration<T extends { id: string; status: BookingStatus; expiresAt: Date }>(
-    booking: T,
-  ): Promise<T> {
-    if (booking.status === 'PENDING' && booking.expiresAt.getTime() < Date.now()) {
-      return { ...booking, ...(await this.prisma.booking.update({
-        where: { id: booking.id },
-        data: { status: 'EXPIRED' },
-      })) };
+  private async applyLazyExpiration<
+    T extends { id: string; status: BookingStatus; expiresAt: Date },
+  >(booking: T): Promise<T> {
+    if (
+      booking.status === 'PENDING' &&
+      booking.expiresAt.getTime() < Date.now()
+    ) {
+      return {
+        ...booking,
+        ...(await this.prisma.booking.update({
+          where: { id: booking.id },
+          data: { status: 'EXPIRED' },
+        })),
+      };
     }
     return booking;
   }
@@ -196,8 +244,14 @@ export class BookingsService {
       if (err instanceof ConflictException) throw err;
       // P2034: conflicto de escritura/deadlock bajo aislamiento Serializable — misma
       // situación que el chequeo explícito de arriba, solo que detectada por Postgres.
-      if (typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2034') {
-        throw new ConflictException('Ese horario ya no está disponible, elige otro.');
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        (err as { code?: string }).code === 'P2034'
+      ) {
+        throw new ConflictException(
+          'Ese horario ya no está disponible, elige otro.',
+        );
       }
       throw err;
     }
@@ -212,7 +266,8 @@ export class BookingsService {
     customerPhone: string;
     confirmationToken: string;
   }): string {
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:4200';
+    const frontendUrl =
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:4200';
     const confirmUrl = `${frontendUrl}/confirmar/${params.confirmationToken}`;
     const fecha = formatDateEsCl(params.dateStr);
     const hora = formatMinutesToHHMM(params.startMinute);

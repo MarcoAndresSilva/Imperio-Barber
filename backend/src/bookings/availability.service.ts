@@ -9,7 +9,11 @@ import { dateFromDateStr, weekdayFromDateStr } from './date.util';
 export class AvailabilityService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAvailableSlots(barberId: string, serviceId: string, dateStr: string) {
+  async getAvailableSlots(
+    barberId: string,
+    serviceId: string,
+    dateStr: string,
+  ) {
     const [barber, service] = await Promise.all([
       this.prisma.barber.findUnique({ where: { id: barberId } }),
       this.prisma.service.findUnique({ where: { id: serviceId } }),
@@ -28,17 +32,29 @@ export class AvailabilityService {
     }
 
     const weekday = weekdayFromDateStr(dateStr);
-    const schedule = await this.prisma.barberSchedule.findUnique({
-      where: { barberId_weekday: { barberId, weekday } },
-    });
+    const dateValue = dateFromDateStr(dateStr);
+    const [schedule, exception] = await Promise.all([
+      this.prisma.barberSchedule.findUnique({
+        where: { barberId_weekday: { barberId, weekday } },
+      }),
+      this.prisma.scheduleException.findUnique({
+        where: { barberId_date: { barberId, date: dateValue } },
+      }),
+    ]);
 
     if (!schedule) {
       return [];
     }
 
+    // Día libre/vacaciones/feriado cargado desde el panel (Fase 3): bloquea el día
+    // completo, igual que si `schedule.isWorkingDay` fuera false ese día puntual.
+    if (exception) {
+      return [];
+    }
+
     const now = new Date();
     const busyBookings = await this.prisma.booking.findMany({
-      where: activeBookingsWhere(barberId, dateFromDateStr(dateStr), now),
+      where: activeBookingsWhere(barberId, dateValue, now),
       select: { startMinute: true, endMinute: true },
     });
 

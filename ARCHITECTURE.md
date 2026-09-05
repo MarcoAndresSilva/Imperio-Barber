@@ -29,12 +29,12 @@ Este documento es el registro de cómo se fue construyendo esa idea en la práct
 - Probado end-to-end con túnel público (demo real desde celular, con confirmación por WhatsApp)
 - **Fase 1 del cierre** (Paso 23): rate limiting, health check con DB, fix de race en la confirmación, CORS que no falla en silencio, rating oculto sin reseñas, fix de `start:prod`
 - **Fase 2 del cierre** (Paso 24): modelo `User`, `AuthModule` (`POST /auth/login` + JWT 8 h + `JwtAuthGuard` + `GET /auth/me`), argon2, throttle en login, script `seed:admin`
+- **Fase 3 del cierre** (Paso 25): modelo `ScheduleException` (días libres) integrado a la disponibilidad, estado `CANCELLED`, `AdminModule` completo (mantenedores de reservas/barberos/servicios/horarios/días libres + reserva manual), todo protegido por `JwtAuthGuard`
 
 **🔜 Próximos pasos — Plan de cierre v1** (detalle completo en la *Parte 4* de este archivo):
 Terminar Imperio Barber completo y desplegado para portafolio, antes de congelarlo como base de la
 plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). **El despliegue va al final** —
 primero se construye todo, incluido el panel de administración.
-- **Fase 3 — API de administración (backend):** modelo `ScheduleException` (días libres), estado `CANCELLED`, `AdminModule` con mantenedores de reservas / barberos / servicios / horarios + reserva manual.
 - **Fase 4 — Panel de administración (frontend):** `AuthService` + interceptor + guard, `/admin/login`, layout con sidebar, dashboard + 5 mantenedores.
 - **Fase 5 — Datos reales + despliegue:** seed real (o placeholders limpios), Neon + `render.yaml` + `netlify.toml`, smoke test en producción.
 - **Fase 6 — CI/CD + pulido de portafolio:** GitHub Actions, README con links/capturas, OG tags, Lighthouse, tests e2e.
@@ -241,18 +241,7 @@ después se despliega, con datos placeholder si los reales de la barbería no ll
 
 - **Fase 1 — Hardening y bugs (backend):** ✅ completada — ver Paso 23.
 - **Fase 2 — Autenticación (backend):** ✅ completada — ver Paso 24.
-- **Fase 3 — API de administración (backend):**
-  - Nuevo modelo `ScheduleException` (`barberId`, `date` `@db.Date`, `reason?`; índice `[barberId, date]`) — días libres / vacaciones / feriados.
-  - Estado `CANCELLED` en el enum `BookingStatus` (cancelar desde el panel una reserva ya `CONFIRMED`).
-  - Extender `availability.ts` para restar también las `ScheduleException` del día + actualizar sus tests.
-  - `AdminModule` (todo con `JwtAuthGuard`, prefijo `/admin`, DTOs validados):
-    - `GET /admin/bookings?date=&status=&barberId=` — listado con barbero + servicio.
-    - `PATCH /admin/bookings/:id/confirm` · `/reject` · `/cancel`.
-    - `POST /admin/bookings` — reserva manual (walk-in / teléfono): queda `CONFIRMED` directo, sin link de WhatsApp.
-    - `GET/POST/PATCH/DELETE /admin/barbers` y `/admin/services` — CRUD, delete = soft (`active=false`).
-    - `PUT /admin/barbers/:id/schedule` — upsert de las 7 filas del horario semanal.
-    - `GET/POST/DELETE /admin/barbers/:id/time-off` — CRUD de `ScheduleException`.
-  - Tests: cada grupo con y sin auth · una `ScheduleException` bloquea los slots de ese día.
+- **Fase 3 — API de administración (backend):** ✅ completada — ver Paso 25.
 - **Fase 4 — Panel de administración (frontend):**
   - `AuthService` (signals): `login()`, `logout()`, token en `localStorage`, `isAuthenticated`.
   - HTTP interceptor (agrega `Authorization: Bearer`; en 401 limpia sesión → `/admin/login`) + `authGuard` funcional en `/admin/**`.
@@ -351,5 +340,53 @@ después se despliega, con datos placeholder si los reales de la barbería no ll
   - En vivo: `login` con credenciales buenas → `200` + JWT (payload con `sub`/`email`/`role:ADMIN`,
     `exp = iat + 28800`); password mala → `401`; `/auth/me` sin token → `401`, con token → el usuario,
     con token basura → `401`; 5 intentos de login en un minuto → luego `429`.
+
+### Paso 25: Fase 3 — API de administración (backend)
+
+- **Objetivo:** darle al backend todo lo que el panel (Fase 4) necesita: gestionar reservas, barberos,
+  servicios, horarios y días libres, y cargar reservas manuales (walk-in / teléfono).
+- **Modelo `ScheduleException`** (`barberId`, `date` `@db.Date`, `reason?`, `@@unique([barberId, date])`)
+  — día puntual en que un barbero no atiende (vacaciones, feriado, día libre), por encima de su horario
+  semanal recurrente. Bloquea el **día completo**, no horas sueltas — se decidió resolverlo en
+  `AvailabilityService` (tratarlo como "no hay horario ese día", igual que si no existiera fila en
+  `BarberSchedule`) en vez de meter el concepto en la función pura `computeAvailableSlots` — más simple
+  y no le pide nada nuevo al algoritmo ya probado.
+- **Estado `CANCELLED`** agregado al enum `BookingStatus`, para cancelar desde el panel una reserva ya
+  `CONFIRMED` (una `PENDING` se rechaza, no se cancela).
+- **Refactor de `BookingsService`:** `accept`/`reject` (por token, flujo público) y los nuevos
+  `confirmById`/`rejectById`/`cancelById` (por id, panel) comparten un único método privado
+  `transition(where, from, to)` — mismo `updateMany` atómico de la Fase 1 (Paso 23), generalizado para
+  aceptar `{ confirmationToken }` o `{ id }` y cualquier par de estados. `create()` ganó
+  `opts.byStaff`: si viene del panel, la reserva nace `CONFIRMED` y sin `whatsappUrl` (el dueño ya sabe
+  que la está cargando) — reutiliza toda la validación de horario y el anti-doble-reserva existentes,
+  sin duplicar nada.
+- **`AdminModule`** (`src/admin/`, todo bajo `@UseGuards(JwtAuthGuard)`, DTOs validados con
+  class-validator, `PartialType` de `@nestjs/mapped-types` para los DTO de update):
+  - `admin/bookings`: `GET ?date=&status=&barberId=` (con barbero+servicio embebidos), `POST` (reserva
+    manual), `PATCH :id/confirm|reject|cancel`.
+  - `admin/barbers`: CRUD (`DELETE` = soft, `active:false` — las reservas pasadas conservan su
+    `barberId`); `GET/PUT :id/schedule` (upsert transaccional de las 7 filas, valida que cubran
+    exactamente los weekdays 0-6 una vez cada uno, y que en un día laboral el inicio sea antes que el
+    término); `GET/POST/DELETE :id/time-off` (CRUD de `ScheduleException`, con 409 si ya existe una
+    excepción para esa fecha).
+  - `admin/services`: mismo patrón CRUD que barberos.
+  - A diferencia de `BarbersService`/`ServicesService` (públicos, solo activos, `select` acotado), los
+    servicios de `admin/` hablan directo con `PrismaService` y devuelven el registro completo,
+    incluyendo inactivos — el panel necesita poder reactivarlos y editar todos los campos.
+- **Verificación real (no solo build):**
+  - `npm run build` OK · `npm test` **30/30** (10 nuevos: `BookingsService` — confirmById/cancelById
+    con éxito y con conflicto de estado, 404 si no existe; `AdminBarbersService` — P2002→409, rechazo
+    de horario incompleto o invertido, upsert de los 7 días).
+  - En vivo, con el backend recién migrado (`add_cancelled_and_schedule_exceptions`) y un token real:
+    `/admin/barbers` sin token → `401`; crear barbero → `201`; slug repetido → `409`; update → `200`;
+    `DELETE` → `active:false`.
+  - Horario: `PUT` con 6 días → `400`; con los 7 días válidos → `200`.
+  - Días libres: disponibilidad de un día real → **39 slots**; se crea el día libre → disponibilidad
+    del mismo día → **0 slots**; crear el mismo día libre de nuevo → `409`; se borra → disponibilidad
+    vuelve a **39 slots**.
+  - Reservas: reserva manual → `CONFIRMED` con `whatsappUrl: null`; `cancel` → `CANCELLED`; `cancel` de
+    nuevo → `409` ("ya está en estado CANCELLED"); reserva pública (`PENDING`, con `whatsappUrl` real) →
+    el panel la `confirm` → `CONFIRMED`; intentar `reject` después → `409`.
+  - Datos de prueba borrados de la base local al terminar.
 
 _(se sigue completando a medida que se construye)_
