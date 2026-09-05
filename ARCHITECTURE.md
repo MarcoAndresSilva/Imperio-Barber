@@ -28,12 +28,12 @@ Este documento es el registro de cómo se fue construyendo esa idea en la práct
 - 3 fotos reales de barberos cargadas (Barbero 1-3; 4-6 siguen con placeholder)
 - Probado end-to-end con túnel público (demo real desde celular, con confirmación por WhatsApp)
 - **Fase 1 del cierre** (Paso 23): rate limiting, health check con DB, fix de race en la confirmación, CORS que no falla en silencio, rating oculto sin reseñas, fix de `start:prod`
+- **Fase 2 del cierre** (Paso 24): modelo `User`, `AuthModule` (`POST /auth/login` + JWT 8 h + `JwtAuthGuard` + `GET /auth/me`), argon2, throttle en login, script `seed:admin`
 
 **🔜 Próximos pasos — Plan de cierre v1** (detalle completo en la *Parte 4* de este archivo):
 Terminar Imperio Barber completo y desplegado para portafolio, antes de congelarlo como base de la
 plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). **El despliegue va al final** —
 primero se construye todo, incluido el panel de administración.
-- **Fase 2 — Autenticación (backend):** modelo `User`, `POST /auth/login` + JWT + guard, argon2, admin bootstrap por env.
 - **Fase 3 — API de administración (backend):** modelo `ScheduleException` (días libres), estado `CANCELLED`, `AdminModule` con mantenedores de reservas / barberos / servicios / horarios + reserva manual.
 - **Fase 4 — Panel de administración (frontend):** `AuthService` + interceptor + guard, `/admin/login`, layout con sidebar, dashboard + 5 mantenedores.
 - **Fase 5 — Datos reales + despliegue:** seed real (o placeholders limpios), Neon + `render.yaml` + `netlify.toml`, smoke test en producción.
@@ -240,13 +240,7 @@ después se despliega, con datos placeholder si los reales de la barbería no ll
 ### Fases del cierre
 
 - **Fase 1 — Hardening y bugs (backend):** ✅ completada — ver Paso 23.
-- **Fase 2 — Autenticación (backend):**
-  - Deps: `@nestjs/jwt`, `@nestjs/passport`, `passport-jwt`, `argon2`.
-  - Modelo `User` (`email` único, `passwordHash`, `name`, `role: ADMIN`, timestamps) + migración.
-  - `AuthModule`: `POST /auth/login` (email+password → `{ accessToken }`, expira ~8 h), `GET /auth/me`, `JwtStrategy`, `JwtAuthGuard`. Token plano en `localStorage` (refresh token = mejora futura).
-  - Admin bootstrap: script `prisma/seed-admin.ts` que crea/actualiza al dueño desde `ADMIN_EMAIL` + `ADMIN_PASSWORD` de env (hash argon2 al vuelo), idempotente. Sin credenciales en git.
-  - `JWT_SECRET` a `.env` / `.env.example`. Throttler en `/auth/login`.
-  - Tests: login OK · password mala → 401 · token inválido → 401 · ruta protegida sin token → 401.
+- **Fase 2 — Autenticación (backend):** ✅ completada — ver Paso 24.
 - **Fase 3 — API de administración (backend):**
   - Nuevo modelo `ScheduleException` (`barberId`, `date` `@db.Date`, `reason?`; índice `[barberId, date]`) — días libres / vacaciones / feriados.
   - Estado `CANCELLED` en el enum `BookingStatus` (cancelar desde el panel una reserva ya `CONFIRMED`).
@@ -320,5 +314,42 @@ después se despliega, con datos placeholder si los reales de la barbería no ll
   - Ciclo completo: crear reserva real → `accept` #1 → `200` (`CONFIRMED`) → `accept` #2 → `409`
     ("ya está en estado CONFIRMED") → `reject` → `409`. El mensaje de WhatsApp con la fecha en
     español (martes 8 de septiembre) confirmó de paso que el fix de fecha del Paso 14 sigue en pie.
+
+### Paso 24: Fase 2 — Autenticación del panel (backend)
+
+- **Objetivo:** darle al backend un login para el dueño, sobre el que la Fase 3 monta el `AdminModule`.
+  Los barberos **no** tienen cuenta — siguen confirmando por el link con token.
+- **Modelo `User`** (`prisma/schema.prisma`): `email` único, `passwordHash`, `name`, `role` (enum `Role`,
+  hoy solo `ADMIN`), timestamps. Migración `20260904054530_add_user_model`.
+- **`AuthModule`** (`src/auth/`):
+  - `POST /auth/login` — email + password → `{ accessToken }` (JWT HS256, expira en **8 h**). Mensaje de
+    error genérico ("Credenciales inválidas") exista o no el email, para no filtrar qué correos están
+    registrados. `argon2.verify` envuelto en try/catch: un hash corrupto se trata como credencial
+    inválida, no como 500.
+  - `GET /auth/me` — protegido por `JwtAuthGuard`; devuelve el usuario que `JwtStrategy.validate` dejó
+    en `request.user` (vía un `@CurrentUser()` param decorator).
+  - `JwtStrategy` (`passport-jwt`) **revalida contra la BD** en cada request: si el usuario fue borrado,
+    el token deja de servir aunque no haya expirado.
+  - Passwords con **argon2** (`argon2.hash` en el seed, `argon2.verify` en el login).
+  - `@Throttle({ limit: 5, ttl: 60s })` en `/auth/login` (anti fuerza bruta), por encima del límite
+    global.
+- **Bootstrap del admin:** `prisma/seed-admin.ts` (`npm run seed:admin`, corre con `tsx`) hace `upsert`
+  del usuario dueño desde `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` del entorno — idempotente, sin
+  credenciales en git. `JWT_SECRET` + `ADMIN_*` agregados a `.env.example`. También se agregó
+  `npm run seed` como alias de `tsx prisma/seed.ts`.
+- **Choque ESM (repetición del Paso 10):** `@nestjs/jwt@12` y `@nestjs/passport@12` son **ESM puro**
+  (`"type": "module"`, `export * from './x.js'`) — rompían Jest (`ts-jest`/CommonJS) y contradicen la
+  decisión del Paso 10 de mantener el backend en CommonJS. Se bajaron ambos a **v11** (CommonJS), que
+  es lo consistente con el resto del stack. Además: `@nestjs/jwt` exige `expiresIn` como
+  `ms.StringValue`, no `string` genérico → se fijó el literal `'8h'` en `JwtModule` (se descartó
+  `JWT_EXPIRES_IN` configurable). Y el `@CurrentUser() user: AuthUser` en un handler decorado obligó a
+  importar el tipo con `import { CurrentUser, type AuthUser }` (`isolatedModules` + `emitDecoratorMetadata`).
+- **Verificación real (no solo build):**
+  - `npm run build` OK · `npm test` **20/20** (5 nuevos: `AuthService` login OK / password mala / email
+    inexistente; `JwtStrategy.validate` usuario existe / usuario borrado → 401).
+  - `npm run seed:admin` → crea el usuario; correrlo de nuevo → lo actualiza sin duplicar.
+  - En vivo: `login` con credenciales buenas → `200` + JWT (payload con `sub`/`email`/`role:ADMIN`,
+    `exp = iat + 28800`); password mala → `401`; `/auth/me` sin token → `401`, con token → el usuario,
+    con token basura → `401`; 5 intentos de login en un minuto → luego `429`.
 
 _(se sigue completando a medida que se construye)_

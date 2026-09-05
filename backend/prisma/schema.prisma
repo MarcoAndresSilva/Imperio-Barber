@@ -18,6 +18,24 @@ enum BookingStatus {
   EXPIRED
 }
 
+enum Role {
+  ADMIN
+}
+
+/// Usuario del panel de administración. Por ahora solo el dueño (rol ADMIN);
+/// los barberos siguen confirmando por link con token, sin cuenta.
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
 model Barber {
   id            String   @id @default(uuid())
   name          String

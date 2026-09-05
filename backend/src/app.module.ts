@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
 import { ServicesModule } from './services/services.module';
 import { BarbersModule } from './barbers/barbers.module';
 import { BookingsModule } from './bookings/bookings.module';
@@ -19,6 +20,7 @@ import { BookingsModule } from './bookings/bookings.module';
     // instancia en Render; si algún día hay más de una, migrar a un storage compartido.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     PrismaModule,
+    AuthModule,
     ServicesModule,
     BarbersModule,
     BookingsModule,
