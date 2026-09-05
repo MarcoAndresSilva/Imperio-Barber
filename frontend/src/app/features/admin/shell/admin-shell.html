@@ -1,0 +1,20 @@
+<div class="admin-shell">
+  <aside class="sidebar">
+    <app-logo variant="wordmark" class="logo" />
+    <p class="tag">Panel de administración</p>
+
+    <nav>
+      @for (link of links; track link.path) {
+        <a [routerLink]="link.path" routerLinkActive="active">{{ link.label }}</a>
+      }
+    </nav>
+
+    <button type="button" class="btn btn-outline btn-block logout" (click)="onLogout()">
+      Cerrar sesión
+    </button>
+  </aside>
+
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>

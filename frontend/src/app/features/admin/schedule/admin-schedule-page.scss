@@ -1,0 +1,47 @@
+h2 {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  margin-bottom: 18px;
+}
+
+.schedule-table {
+  margin-bottom: 20px;
+
+  input[type='time'] {
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    border-radius: var(--radius);
+    padding: 6px 8px;
+    font-family: var(--font-sans);
+
+    &:disabled {
+      opacity: 0.4;
+    }
+  }
+
+  input[type='checkbox'] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-accent);
+  }
+}
+
+.time-off-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 20px;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--color-bg-alt);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: 14px;
+  }
+}

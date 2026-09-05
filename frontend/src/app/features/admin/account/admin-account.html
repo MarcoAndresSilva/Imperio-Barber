@@ -1,0 +1,152 @@
+<div class="admin-header">
+  <div>
+    <h1>Cuenta</h1>
+    <p>Tus datos y tu contraseña de acceso al panel.</p>
+  </div>
+</div>
+
+@if (user(); as u) {
+  <div class="admin-card">
+    <div class="admin-form">
+      <div class="admin-field">
+        <label>Nombre</label>
+        <p class="readonly">{{ u.name }}</p>
+      </div>
+      <div class="admin-field">
+        <label>Email</label>
+        <p class="readonly">{{ u.email }}</p>
+      </div>
+    </div>
+  </div>
+}
+
+<div class="admin-card">
+  <h2>Cambiar contraseña</h2>
+
+  <div class="admin-form">
+    <div class="admin-field">
+      <label for="curPass">Contraseña actual</label>
+      <input
+        id="curPass"
+        type="password"
+        autocomplete="current-password"
+        [value]="currentPassword()"
+        (input)="currentPassword.set($any($event.target).value)"
+      />
+    </div>
+    <div class="admin-field">
+      <label for="newPass">Contraseña nueva</label>
+      <input
+        id="newPass"
+        type="password"
+        autocomplete="new-password"
+        [value]="newPassword()"
+        (input)="newPassword.set($any($event.target).value)"
+      />
+    </div>
+    <div class="admin-field">
+      <label for="confirmPass">Repetir contraseña nueva</label>
+      <input
+        id="confirmPass"
+        type="password"
+        autocomplete="new-password"
+        [value]="confirmPassword()"
+        (input)="confirmPassword.set($any($event.target).value)"
+      />
+    </div>
+
+    <div class="admin-form-actions">
+      @if (error()) {
+        <p class="error-msg">{{ error() }}</p>
+      }
+      @if (success()) {
+        <p class="success-msg">{{ success() }}</p>
+      }
+      <button type="button" class="btn btn-solid" [disabled]="!canSubmit || submitting()" (click)="onSubmit()">
+        {{ submitting() ? 'Guardando…' : 'Actualizar contraseña' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="admin-header">
+  <div>
+    <h2>Usuarios del panel</h2>
+    <p>Todos con el mismo nivel de acceso (rol dueño). Los barberos siguen usando el link con token, no tienen cuenta acá.</p>
+  </div>
+  <button type="button" class="btn btn-solid" (click)="toggleNewUserForm()">
+    {{ showNewUserForm() ? 'Cerrar' : '+ Nuevo usuario' }}
+  </button>
+</div>
+
+@if (showNewUserForm()) {
+  <div class="admin-card">
+    <div class="admin-form">
+      <div class="admin-field">
+        <label for="nuName">Nombre</label>
+        <input id="nuName" type="text" [value]="newUserName()" (input)="newUserName.set($any($event.target).value)" />
+      </div>
+      <div class="admin-field">
+        <label for="nuEmail">Email</label>
+        <input id="nuEmail" type="email" [value]="newUserEmail()" (input)="newUserEmail.set($any($event.target).value)" />
+      </div>
+      <div class="admin-field">
+        <label for="nuPassword">Contraseña</label>
+        <input
+          id="nuPassword"
+          type="password"
+          autocomplete="new-password"
+          [value]="newUserPassword()"
+          (input)="newUserPassword.set($any($event.target).value)"
+        />
+      </div>
+
+      <div class="admin-form-actions">
+        @if (newUserError()) {
+          <p class="error-msg">{{ newUserError() }}</p>
+        }
+        <button type="button" class="btn btn-solid" [disabled]="!canSubmitNewUser || newUserSubmitting()" (click)="onCreateUser()">
+          {{ newUserSubmitting() ? 'Creando…' : 'Crear usuario' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<div class="admin-card">
+  @if (usersError()) {
+    <p class="error-msg">{{ usersError() }}</p>
+  }
+  @if (loadingUsers()) {
+    <p class="admin-empty">Cargando…</p>
+  } @else if (users().length === 0) {
+    <p class="admin-empty">No hay usuarios (raro — debería existir al menos uno).</p>
+  } @else {
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Email</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of users(); track u.id) {
+            <tr>
+              <td>{{ u.name }}{{ u.id === currentUserId() ? ' (tú)' : '' }}</td>
+              <td>{{ u.email }}</td>
+              <td class="actions">
+                @if (u.id !== currentUserId()) {
+                  <button type="button" class="btn btn-outline" (click)="onRemoveUser(u.id, u.name)">Eliminar</button>
+                } @else {
+                  <span class="admin-empty">—</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

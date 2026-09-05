@@ -1,0 +1,161 @@
+<div class="admin-header">
+  <div>
+    <h1>Reservas</h1>
+    <p>Filtra por día, estado o barbero. Confirma, rechaza o cancela desde acá.</p>
+  </div>
+  <button type="button" class="btn btn-solid" (click)="toggleManualForm()">
+    {{ showManualForm() ? 'Cerrar' : '+ Nueva reserva manual' }}
+  </button>
+</div>
+
+@if (showManualForm()) {
+  <div class="admin-card">
+    <h2>Nueva reserva manual (walk-in / teléfono)</h2>
+    <p class="hint">Queda confirmada al toque — no se envía WhatsApp, ya que la estás cargando tú.</p>
+
+    <div class="admin-form">
+      <div class="admin-field">
+        <label for="mBarber">Barbero</label>
+        <select id="mBarber" [value]="manualBarberId()" (change)="manualBarberId.set($any($event.target).value)">
+          <option value="">Elige…</option>
+          @for (b of activeBarbers(); track b.id) {
+            <option [value]="b.id">{{ b.name }}</option>
+          }
+        </select>
+      </div>
+      <div class="admin-field">
+        <label for="mService">Servicio</label>
+        <select id="mService" [value]="manualServiceId()" (change)="manualServiceId.set($any($event.target).value)">
+          <option value="">Elige…</option>
+          @for (s of activeServices(); track s.id) {
+            <option [value]="s.id">{{ s.name }} ({{ formatClp(s.priceClp) }})</option>
+          }
+        </select>
+      </div>
+      <div class="admin-field">
+        <label for="mDate">Fecha</label>
+        <input id="mDate" type="date" [value]="manualDate()" (input)="manualDate.set($any($event.target).value)" />
+      </div>
+      <div class="admin-field">
+        <label for="mSlot">Horario</label>
+        @if (loadingManualSlots()) {
+          <select disabled><option>Cargando…</option></select>
+        } @else if (manualSlots().length === 0) {
+          <select disabled><option>Elige barbero, servicio y fecha</option></select>
+        } @else {
+          <select
+            id="mSlot"
+            [value]="manualStartMinute() ?? ''"
+            (change)="manualStartMinute.set(+$any($event.target).value)"
+          >
+            <option value="">Elige…</option>
+            @for (slot of manualSlots(); track slot.startMinute) {
+              <option [value]="slot.startMinute" [disabled]="!slot.available">
+                {{ formatMinutesToHHMM(slot.startMinute) }}{{ slot.available ? '' : ' (tomado)' }}
+              </option>
+            }
+          </select>
+        }
+      </div>
+      <div class="admin-field">
+        <label for="mName">Cliente</label>
+        <input id="mName" type="text" [value]="manualCustomerName()" (input)="manualCustomerName.set($any($event.target).value)" />
+      </div>
+      <div class="admin-field">
+        <label for="mPhone">Teléfono</label>
+        <input id="mPhone" type="tel" [value]="manualCustomerPhone()" (input)="manualCustomerPhone.set($any($event.target).value)" />
+      </div>
+
+      <div class="admin-form-actions">
+        @if (manualError()) {
+          <p class="error-msg">{{ manualError() }}</p>
+        }
+        <button type="button" class="btn btn-solid" [disabled]="!canSubmitManual || manualSubmitting()" (click)="onSubmitManual()">
+          {{ manualSubmitting() ? 'Guardando…' : 'Crear reserva' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<div class="admin-toolbar">
+  <input type="date" [value]="filterDate()" (change)="filterDate.set($any($event.target).value); reload()" />
+  <select [value]="filterStatus()" (change)="filterStatus.set($any($event.target).value); reload()">
+    <option value="">Todos los estados</option>
+    @for (s of statuses; track s) {
+      <option [value]="s">{{ s }}</option>
+    }
+  </select>
+  <select [value]="filterBarberId()" (change)="filterBarberId.set($any($event.target).value); reload()">
+    <option value="">Todos los barberos</option>
+    @for (b of barbers(); track b.id) {
+      <option [value]="b.id">{{ b.name }}</option>
+    }
+  </select>
+  <button type="button" class="btn btn-outline" (click)="filterDate.set(''); filterStatus.set(''); filterBarberId.set(''); reload()">
+    Limpiar filtros
+  </button>
+</div>
+
+<div class="admin-card">
+  @if (listError()) {
+    <p class="error-msg">{{ listError() }}</p>
+  }
+  @if (loading()) {
+    <p class="admin-empty">Cargando…</p>
+  } @else if (sortedBookings().length === 0) {
+    <p class="admin-empty">No hay reservas con estos filtros.</p>
+  } @else {
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Barbero</th>
+            <th>Cliente</th>
+            <th>Teléfono</th>
+            <th>Servicio</th>
+            <th>Precio</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of sortedBookings(); track b.id) {
+            <tr>
+              <td>{{ formatDateEsCl(b.date) }}</td>
+              <td>{{ formatMinutesToHHMM(b.startMinute) }}</td>
+              <td>{{ b.barber.name }}</td>
+              <td>{{ b.customerName }}</td>
+              <td>{{ b.customerPhone }}</td>
+              <td>{{ b.service.name }}</td>
+              <td>{{ formatClp(b.priceClpSnapshot) }}</td>
+              <td><span class="status-pill" [class]="b.status.toLowerCase()">{{ b.status }}</span></td>
+              <td class="actions">
+                @if (canConfirm(b)) {
+                  <button type="button" class="btn btn-outline" [disabled]="actionPendingId() === b.id" (click)="onConfirm(b)">
+                    Confirmar
+                  </button>
+                }
+                @if (canReject(b)) {
+                  <button type="button" class="btn btn-outline" [disabled]="actionPendingId() === b.id" (click)="onReject(b)">
+                    Rechazar
+                  </button>
+                }
+                @if (canCancel(b)) {
+                  <button type="button" class="btn btn-outline" [disabled]="actionPendingId() === b.id" (click)="onCancel(b)">
+                    Cancelar
+                  </button>
+                }
+                @if (!canConfirm(b) && !canReject(b) && !canCancel(b)) {
+                  <span class="admin-empty">—</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

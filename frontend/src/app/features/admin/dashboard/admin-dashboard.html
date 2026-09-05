@@ -1,0 +1,66 @@
+<div class="admin-header">
+  <div>
+    <h1>Dashboard</h1>
+    <p>Reservas de hoy — {{ today }}</p>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-value">{{ pendingCount() }}</div>
+    <div class="stat-label">Pendientes</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ confirmedCount() }}</div>
+    <div class="stat-label">Confirmadas</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ otherCount() }}</div>
+    <div class="stat-label">Rechaz. / canc. / exp.</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">{{ bookings().length }}</div>
+    <div class="stat-label">Total del día</div>
+  </div>
+</div>
+
+<div class="admin-card">
+  @if (loading()) {
+    <p class="admin-empty">Cargando…</p>
+  } @else if (loadError()) {
+    <p class="admin-empty">{{ loadError() }}</p>
+  } @else if (sortedBookings().length === 0) {
+    <p class="admin-empty">No hay reservas para hoy.</p>
+  } @else {
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Barbero</th>
+            <th>Cliente</th>
+            <th>Servicio</th>
+            <th>Precio</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of sortedBookings(); track b.id) {
+            <tr>
+              <td>{{ formatMinutesToHHMM(b.startMinute) }}</td>
+              <td>{{ b.barber.name }}</td>
+              <td>{{ b.customerName }}</td>
+              <td>{{ b.service.name }}</td>
+              <td>{{ formatClp(b.priceClpSnapshot) }}</td>
+              <td><span class="status-pill" [class]="b.status.toLowerCase()">{{ b.status }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+<p class="admin-empty">
+  <a routerLink="/admin/bookings">Ver todas las reservas →</a>
+</p>

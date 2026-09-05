@@ -6,6 +6,12 @@ import { Footer } from './design-system/footer/footer';
 const WHATSAPP_NUMBER = '56994620439';
 const WHATSAPP_TEXT = 'Hola Imperio Barber, quiero agendar una hora';
 
+/** `/confirmar/:token` (voucher compartido por WhatsApp) y `/admin/**` (panel, con
+ * su propio layout de sidebar) no llevan el header/footer/WhatsApp de marketing. */
+function isStandalonePath(path: string): boolean {
+  return path.startsWith('/confirmar') || path.startsWith('/admin');
+}
+
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, Header, Footer],
@@ -18,10 +24,8 @@ export class App {
 
   protected readonly whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_TEXT)}`;
 
-  // '/confirmar/:token' es una página enfocada (compartida por WhatsApp) — sin el header/footer
-  // ni el botón flotante de la marketing, para que se vea como una tarjeta sola.
   protected readonly isStandalonePage = signal(
-    typeof window !== 'undefined' && window.location.pathname.startsWith('/confirmar'),
+    typeof window !== 'undefined' && isStandalonePath(window.location.pathname),
   );
 
   constructor() {
@@ -32,7 +36,7 @@ export class App {
     this.router.events.subscribe((event) => {
       if (!(event instanceof NavigationEnd)) return;
 
-      this.isStandalonePage.set(event.urlAfterRedirects.startsWith('/confirmar'));
+      this.isStandalonePage.set(isStandalonePath(event.urlAfterRedirects));
 
       const hash = window.location.hash.slice(1);
       if (!hash) return;

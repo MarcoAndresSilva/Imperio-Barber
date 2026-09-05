@@ -6,6 +6,8 @@ import { AdminBarbersController } from './barbers/admin-barbers.controller';
 import { AdminBarbersService } from './barbers/admin-barbers.service';
 import { AdminServicesController } from './services/admin-services.controller';
 import { AdminServicesService } from './services/admin-services.service';
+import { AdminUsersController } from './users/admin-users.controller';
+import { AdminUsersService } from './users/admin-users.service';
 
 @Module({
   imports: [BookingsModule],
@@ -13,7 +15,13 @@ import { AdminServicesService } from './services/admin-services.service';
     AdminBookingsController,
     AdminBarbersController,
     AdminServicesController,
+    AdminUsersController,
   ],
-  providers: [AdminBookingsService, AdminBarbersService, AdminServicesService],
+  providers: [
+    AdminBookingsService,
+    AdminBarbersService,
+    AdminServicesService,
+    AdminUsersService,
+  ],
 })
 export class AdminModule {}

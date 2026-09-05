@@ -1,3 +1,22 @@
+const CHILE_TZ = 'America/Santiago';
+
+/** Mismo criterio que el backend (`src/common/chile-time.ts`): no depender del
+ * timezone del navegador/servidor. Usado por el flujo de reservas y por el panel
+ * de administración (Fase 4) para saber qué día es "hoy". */
+export function todayInChileStr(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: CHILE_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+export function weekdayFromDateStr(dateStr: string): number {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
 export function formatMinutesToHHMM(minute: number): string {
   const h = Math.floor(minute / 60)
     .toString()

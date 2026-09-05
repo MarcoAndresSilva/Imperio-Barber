@@ -1,0 +1,115 @@
+<div class="admin-header">
+  <div>
+    <h1>Servicios</h1>
+    <p>Precio y duración en minutos — el orden decide cómo se listan en la landing.</p>
+  </div>
+  <button type="button" class="btn btn-solid" (click)="showForm() ? cancelForm() : startCreate()">
+    {{ showForm() ? 'Cerrar' : '+ Nuevo servicio' }}
+  </button>
+</div>
+
+@if (showForm()) {
+  <div class="admin-card">
+    <h2>{{ editingId() ? 'Editar servicio' : 'Nuevo servicio' }}</h2>
+
+    <div class="admin-form">
+      <div class="admin-field">
+        <label for="sName">Nombre</label>
+        <input id="sName" type="text" [value]="formName()" (input)="formName.set($any($event.target).value)" />
+      </div>
+      <div class="admin-field">
+        <label for="sSlug">Slug</label>
+        <input
+          id="sSlug"
+          type="text"
+          placeholder="corte-clasico"
+          [value]="formSlug()"
+          (input)="formSlug.set($any($event.target).value)"
+        />
+      </div>
+      <div class="admin-field">
+        <label for="sPrice">Precio (CLP)</label>
+        <input id="sPrice" type="number" min="0" step="500" [value]="formPriceClp()" (input)="formPriceClp.set(+$any($event.target).value)" />
+      </div>
+      <div class="admin-field">
+        <label for="sDuration">Duración (min)</label>
+        <input
+          id="sDuration"
+          type="number"
+          min="5"
+          max="480"
+          step="5"
+          [value]="formDurationMinutes()"
+          (input)="formDurationMinutes.set(+$any($event.target).value)"
+        />
+      </div>
+      <div class="admin-field">
+        <label for="sSort">Orden</label>
+        <input id="sSort" type="number" min="0" [value]="formSortOrder()" (input)="formSortOrder.set(+$any($event.target).value)" />
+      </div>
+      <div class="admin-field span-2">
+        <label for="sDesc">Descripción (opcional)</label>
+        <textarea id="sDesc" [value]="formDescription()" (input)="formDescription.set($any($event.target).value)"></textarea>
+      </div>
+
+      <div class="admin-form-actions">
+        @if (formError()) {
+          <p class="error-msg">{{ formError() }}</p>
+        }
+        <button type="button" class="btn btn-solid" [disabled]="!canSubmitForm || formSubmitting()" (click)="onSubmitForm()">
+          {{ formSubmitting() ? 'Guardando…' : 'Guardar' }}
+        </button>
+        <button type="button" class="btn btn-outline" (click)="cancelForm()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<div class="admin-card">
+  @if (listError()) {
+    <p class="error-msg">{{ listError() }}</p>
+  }
+  @if (loading()) {
+    <p class="admin-empty">Cargando…</p>
+  } @else if (services().length === 0) {
+    <p class="admin-empty">Todavía no hay servicios cargados.</p>
+  } @else {
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Slug</th>
+            <th>Precio</th>
+            <th>Duración</th>
+            <th>Orden</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of services(); track s.id) {
+            <tr [class.inactive]="!s.active">
+              <td>{{ s.name }}</td>
+              <td>{{ s.slug }}</td>
+              <td>{{ formatClp(s.priceClp) }}</td>
+              <td>{{ s.durationMinutes }} min</td>
+              <td>{{ s.sortOrder }}</td>
+              <td>
+                <span class="status-pill" [class.confirmed]="s.active" [class.rejected]="!s.active">
+                  {{ s.active ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+              <td class="actions">
+                <button type="button" class="btn btn-outline" (click)="startEdit(s)">Editar</button>
+                <button type="button" class="btn btn-outline" (click)="toggleActive(s)">
+                  {{ s.active ? 'Desactivar' : 'Reactivar' }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

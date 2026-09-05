@@ -30,12 +30,12 @@ Este documento es el registro de cómo se fue construyendo esa idea en la práct
 - **Fase 1 del cierre** (Paso 23): rate limiting, health check con DB, fix de race en la confirmación, CORS que no falla en silencio, rating oculto sin reseñas, fix de `start:prod`
 - **Fase 2 del cierre** (Paso 24): modelo `User`, `AuthModule` (`POST /auth/login` + JWT 8 h + `JwtAuthGuard` + `GET /auth/me`), argon2, throttle en login, script `seed:admin`
 - **Fase 3 del cierre** (Paso 25): modelo `ScheduleException` (días libres) integrado a la disponibilidad, estado `CANCELLED`, `AdminModule` completo (mantenedores de reservas/barberos/servicios/horarios/días libres + reserva manual), todo protegido por `JwtAuthGuard`
+- **Fase 4 del cierre** (Paso 26): **panel de administración real** — `/admin/login` + `/admin` (dashboard, reservas, barberos, servicios, horarios, cuenta), primera vez que el cierre se ve en pantalla
 
 **🔜 Próximos pasos — Plan de cierre v1** (detalle completo en la *Parte 4* de este archivo):
 Terminar Imperio Barber completo y desplegado para portafolio, antes de congelarlo como base de la
 plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). **El despliegue va al final** —
 primero se construye todo, incluido el panel de administración.
-- **Fase 4 — Panel de administración (frontend):** `AuthService` + interceptor + guard, `/admin/login`, layout con sidebar, dashboard + 5 mantenedores.
 - **Fase 5 — Datos reales + despliegue:** seed real (o placeholders limpios), Neon + `render.yaml` + `netlify.toml`, smoke test en producción.
 - **Fase 6 — CI/CD + pulido de portafolio:** GitHub Actions, README con links/capturas, OG tags, Lighthouse, tests e2e.
 
@@ -242,12 +242,7 @@ después se despliega, con datos placeholder si los reales de la barbería no ll
 - **Fase 1 — Hardening y bugs (backend):** ✅ completada — ver Paso 23.
 - **Fase 2 — Autenticación (backend):** ✅ completada — ver Paso 24.
 - **Fase 3 — API de administración (backend):** ✅ completada — ver Paso 25.
-- **Fase 4 — Panel de administración (frontend):**
-  - `AuthService` (signals): `login()`, `logout()`, token en `localStorage`, `isAuthenticated`.
-  - HTTP interceptor (agrega `Authorization: Bearer`; en 401 limpia sesión → `/admin/login`) + `authGuard` funcional en `/admin/**`.
-  - Consolidar `date.util` del frontend: mover `todayInChileStr` / `weekdayFromDateStr` a `core/utils/`; el resto del calendario queda en `features/professionals/`.
-  - Rutas lazy: `/admin/login`; `/admin` (layout con sidebar, fuera del header/footer de marketing — mismo criterio que `/confirmar` con `isStandalonePage`) → **Dashboard** (reservas de hoy + contadores), **Reservas** (tabla con filtros + confirmar/rechazar/cancelar + "nueva reserva manual"), **Barberos**, **Servicios**, **Horarios** (grilla semanal + días libres), **Cuenta** (cambio de contraseña).
-  - Reutiliza `formatClp`, utilidades de fecha y modelos existentes.
+- **Fase 4 — Panel de administración (frontend):** ✅ completada — ver Paso 26.
 - **Fase 5 — Datos reales + despliegue:**
   - `seed.ts` con datos reales (nombres de pila mínimo; WhatsApp individual o uno único de la barbería como fallback; dirección "Manzo 520" completa). Si no llegan: placeholders limpios y se carga el resto por el panel.
   - **Neon**: crear proyecto → `prisma migrate deploy` → seed → `seed-admin`.
@@ -388,5 +383,84 @@ después se despliega, con datos placeholder si los reales de la barbería no ll
     nuevo → `409` ("ya está en estado CANCELLED"); reserva pública (`PENDING`, con `whatsappUrl` real) →
     el panel la `confirm` → `CONFIRMED`; intentar `reject` después → `409`.
   - Datos de prueba borrados de la base local al terminar.
+
+### Paso 26: Fase 4 — Panel de administración (frontend)
+
+- **Objetivo:** que el dueño pueda entrar con su cuenta y gestionar reservas, barberos, servicios,
+  horarios y días libres haciendo clic, en vez de mandar requests a mano — la API ya existía desde la
+  Fase 3, acá se le pone pantalla. Primer hito del cierre que se ve visualmente.
+- **`AuthService`** (`core/services/auth.service.ts`, signals): `login()`, `logout()`,
+  `isAuthenticated` computed, token en `localStorage` (con try/catch — sigue funcionando en memoria si
+  el storage está bloqueado, solo no persiste un reload). También `me()` y `changePassword()`.
+- **Endpoint nuevo que faltaba:** `PATCH /auth/password` (protegido, verifica la contraseña actual con
+  argon2 antes de aceptar la nueva) — la pantalla "Cuenta" de esta fase lo necesitaba y la Fase 2 no lo
+  había construido. +2 tests en `auth.service.spec.ts`.
+- **`authInterceptor`** (funcional, `HttpInterceptorFn`): agrega `Authorization: Bearer` a las llamadas
+  a `/admin/*` y `/auth/*`; si el backend responde `401`, limpia la sesión y manda a `/admin/login`.
+  **`authGuard`** (funcional, `CanActivateFn`) protege el árbol de rutas `/admin/**`.
+- **Consolidación de `date.util`:** `todayInChileStr`/`weekdayFromDateStr` se movieron a
+  `core/utils/date.util.ts` (antes vivían solo en `features/professionals/date.util.ts`); ese archivo
+  ahora los re-exporta desde `core/` para no tocar los imports existentes en `professionals.ts` /
+  `calendar.ts` / `time-slots.ts`. Así el panel los reutiliza sin duplicar.
+- **Rutas** (`app.routes.ts`): `/admin/login` (pública) y `/admin` (con `authGuard`, layout de sidebar
+  `AdminShell`) con hijos `dashboard` (default), `bookings`, `barbers`, `services`, `schedule`,
+  `account` — los 6 ítems del plan. `app.ts` extendió `isStandalonePage` para que `/admin/**` tampoco
+  lleve el header/footer/WhatsApp flotante de la landing (mismo criterio que `/confirmar`).
+- **Pantallas** (`features/admin/`), todas con signals + bindings manuales (`[value]`/`(input)`, sin
+  `FormsModule`/`ReactiveFormsModule` — mismo patrón que `BookingForm`, ya establecido en el proyecto):
+  - **Dashboard:** reservas de hoy + contadores (pendientes/confirmadas/otras).
+  - **Reservas:** filtros (fecha/estado/barbero), tabla con confirmar/rechazar/cancelar según el
+    estado, y "Nueva reserva manual" — el formulario reutiliza `BarbersApiService.findAvailability`
+    (el mismo endpoint público del flujo de reserva) para ofrecer solo horarios reales, con un
+    `effect()` que recarga la disponibilidad al cambiar barbero/servicio/fecha.
+  - **Barberos** y **Servicios:** mismo patrón CRUD — tabla + formulario inline para crear/editar,
+    "Desactivar"/"Reactivar" en vez de borrar de verdad.
+  - **Horarios:** selector de barbero → grilla semanal editable (`<input type="time">`, que ya calza
+    con el formato `HH:MM` de `formatMinutesToHHMM`) + gestión de días libres (agregar con fecha y
+    motivo, quitar).
+  - **Cuenta:** datos del usuario (`GET /auth/me`) + cambio de contraseña.
+- **Estilos compartidos nuevos en `styles.scss`** (global, prefijo `admin-*`/`stat-*`/`status-pill` para
+  no chocar con las clases de la landing): tarjetas, tabla, formulario en grilla, badges de estado,
+  toolbar de filtros — reutilizados por las 6 pantallas en vez de repetir CSS en cada una.
+- **Verificación real, no solo build** (con Playwright — Chromium ya estaba cacheado de la demo del
+  Paso 21 — contra el backend y el `ng serve` levantados):
+  - `npm run build` (backend y frontend) OK · backend **32/32** tests · frontend **2/2**.
+  - Visual: capturas de `/admin/login`, dashboard, reservas (con el form de reserva manual abierto),
+    barberos, servicios y horarios — coherentes con la identidad visual del sitio.
+  - **Funcional de punta a punta, por la UI real** (no solo API): entrar sin sesión a `/admin/dashboard`
+    → redirige a `/admin/login`; login real → dashboard; crear un barbero desde el formulario → aparece
+    en la tabla, nace activo; editarlo, desactivarlo (queda "Inactivo"), reactivarlo; agregar un día
+    libre → aparece en la lista → quitarlo; crear una reserva manual eligiendo barbero/servicio/fecha/
+    horario real → aparece en la tabla como `CONFIRMED` sin WhatsApp → cancelarla → queda `CANCELLED`;
+    cerrar sesión → vuelve a `/admin/login`.
+  - Datos de prueba borrados de la base local al terminar.
+- **Nota de pulido pendiente (Fase 6):** la tabla de Reservas, con muchas columnas, se corta
+  visualmente en un viewport angosto sin indicar que hay scroll horizontal — funciona (scrollea), pero
+  falta una señal visual. Anotado para la pasada de pulido, no bloquea nada.
+
+### Paso 27: Ajustes post-Fase 4 — filtro de Reservas y multi-usuario del panel
+
+- **Bug real encontrado usando el panel de verdad:** "Reservas" arrancaba filtrado a "hoy" — con la
+  agenda vacía ese día, la tabla se veía vacía hasta apretar "Limpiar filtros", como si no hubiese
+  datos. Se cambió el filtro de fecha por defecto a vacío (`filterDate = ''`): la pantalla ahora sirve
+  también de histórico completo (pasado y futuro) apenas se entra. El orden se corrigió de paso —
+  antes `sortedBookings` solo ordenaba por `startMinute`, mezclando fechas distintas; ahora ordena por
+  `date` y después por hora.
+- **Decisión de alcance (pedida por el usuario):** login multi-usuario, pero **todos con el mismo nivel
+  de acceso** (rol `ADMIN`) — no cuentas por barbero con permisos acotados (esa sigue siendo la
+  "Opción B", pospuesta a una próxima sesión).
+- **Backend:** `AdminUsersController`/`AdminUsersService` (`src/admin/users/`, bajo `JwtAuthGuard`) —
+  `GET /admin/users` (lista sin `passwordHash`), `POST /admin/users` (crea con argon2, 409 si el email
+  ya existe), `DELETE /admin/users/:id` con dos resguardos: no te puedes eliminar a ti mismo, y no se
+  puede eliminar si es el último usuario que queda (evitaría dejar el panel sin nadie que entre).
+- **Frontend:** sección "Usuarios del panel" agregada a la pantalla **Cuenta** (no una pantalla nueva en
+  el sidebar) — tabla + formulario inline para crear, con `confirm()` nativo antes de eliminar (a
+  diferencia de "desactivar" barbero/servicio, acá el borrado es real, no soft-delete).
+- **Verificación real:** backend build + **38/38** tests (6 nuevos de `AdminUsersService`). En vivo,
+  contra el propio dev server del usuario (sin reiniciar nada — su `start:dev`/`ng serve` recompilaron
+  solos al guardar): el filtro de fecha arranca vacío; aparece "Usuarios del panel"; el usuario actual
+  sale marcado "(tú)" y sin botón Eliminar; se crea un segundo usuario, **se loguea de verdad con él**
+  (no solo aparece en la lista), y se elimina de vuelta con el admin original. Usuario de prueba
+  borrado al terminar.
 
 _(se sigue completando a medida que se construye)_

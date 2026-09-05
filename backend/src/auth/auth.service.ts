@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +28,19 @@ export class AuthService {
     });
 
     return { accessToken };
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ ok: true }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user || !(await this.verify(user.passwordHash, dto.currentPassword))) {
+      throw new UnauthorizedException('La contraseña actual no es correcta.');
+    }
+
+    const passwordHash = await argon2.hash(dto.newPassword);
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+    return { ok: true };
   }
 
   private async verify(hash: string, password: string): Promise<boolean> {

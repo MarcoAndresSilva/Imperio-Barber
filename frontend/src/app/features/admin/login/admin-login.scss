@@ -1,0 +1,74 @@
+.admin-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(242, 237, 228, 0.06), transparent 45%),
+    var(--color-bg);
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+h1 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.lead {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin-bottom: 28px;
+  max-width: none;
+}
+
+form {
+  text-align: left;
+}
+
+.field {
+  margin-bottom: 14px;
+
+  label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+  }
+
+  input {
+    width: 100%;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: inherit;
+    border-radius: var(--radius);
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-text);
+    }
+  }
+}
+
+.error-msg {
+  margin-bottom: 14px;
+}

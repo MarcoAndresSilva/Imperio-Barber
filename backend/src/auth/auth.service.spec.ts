@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 describe('AuthService', () => {
   let service: AuthService;
   let findUnique: jest.Mock;
+  let update: jest.Mock;
   let signAsync: jest.Mock;
 
   const password = 'clave-super-segura';
@@ -19,12 +20,13 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     findUnique = jest.fn();
+    update = jest.fn();
     signAsync = jest.fn().mockResolvedValue('signed.jwt.token');
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: PrismaService, useValue: { user: { findUnique } } },
+        { provide: PrismaService, useValue: { user: { findUnique, update } } },
         { provide: JwtService, useValue: { signAsync } },
       ],
     }).compile();
@@ -72,5 +74,36 @@ describe('AuthService', () => {
       service.login({ email: 'nadie@b.cl', password }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(signAsync).not.toHaveBeenCalled();
+  });
+
+  describe('changePassword', () => {
+    it('401 si la contraseña actual no es correcta', async () => {
+      findUnique.mockResolvedValue({ id: 'u1', passwordHash });
+
+      await expect(
+        service.changePassword('u1', {
+          currentPassword: 'no-es-esta',
+          newPassword: 'otra-clave-nueva',
+        }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('actualiza el hash cuando la contraseña actual es correcta', async () => {
+      findUnique.mockResolvedValue({ id: 'u1', passwordHash });
+      update.mockResolvedValue({});
+
+      await expect(
+        service.changePassword('u1', {
+          currentPassword: password,
+          newPassword: 'otra-clave-nueva',
+        }),
+      ).resolves.toEqual({ ok: true });
+
+      expect(update).toHaveBeenCalledTimes(1);
+      const [[{ where, data }]] = update.mock.calls;
+      expect(where).toEqual({ id: 'u1' });
+      expect(data.passwordHash).not.toBe(passwordHash);
+    });
   });
 });

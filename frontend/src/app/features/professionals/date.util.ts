@@ -1,21 +1,11 @@
-export { formatMinutesToHHMM } from '../../core/utils/date.util';
-
-const CHILE_TZ = 'America/Santiago';
-
-/** Mismo criterio que el backend (src/common/chile-time.ts): no depender del TZ del navegador/servidor. */
-export function todayInChileStr(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: CHILE_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-}
-
-export function weekdayFromDateStr(dateStr: string): number {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-}
+// `todayInChileStr`/`weekdayFromDateStr` viven en core/utils (Fase 4): el panel de
+// administración también los necesita. Acá quedan solo los re-exports para no tener
+// que tocar los imports de `professionals.ts`/`calendar.ts`/`time-slots.ts`.
+export {
+  formatMinutesToHHMM,
+  todayInChileStr,
+  weekdayFromDateStr,
+} from '../../core/utils/date.util';
 
 export interface CalendarCell {
   dateStr: string;

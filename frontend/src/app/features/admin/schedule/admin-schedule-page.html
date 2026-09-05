@@ -1,0 +1,115 @@
+<div class="admin-header">
+  <div>
+    <h1>Horarios</h1>
+    <p>Horario semanal recurrente y días libres puntuales, por barbero.</p>
+  </div>
+</div>
+
+<div class="admin-toolbar">
+  <select [value]="selectedBarberId()" (change)="selectedBarberId.set($any($event.target).value)">
+    @for (b of barbers(); track b.id) {
+      <option [value]="b.id">{{ b.name }}{{ b.active ? '' : ' (inactivo)' }}</option>
+    }
+  </select>
+</div>
+
+<div class="admin-card">
+  <h2>Horario semanal</h2>
+
+  @if (loadingSchedule()) {
+    <p class="admin-empty">Cargando…</p>
+  } @else {
+    <div class="table-scroll">
+      <table class="admin-table schedule-table">
+        <thead>
+          <tr>
+            <th>Día</th>
+            <th>Atiende</th>
+            <th>Desde</th>
+            <th>Hasta</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of scheduleRows(); track row.weekday) {
+            <tr>
+              <td>{{ weekdayLabels[row.weekday] }}</td>
+              <td>
+                <input
+                  type="checkbox"
+                  [checked]="row.isWorkingDay"
+                  (change)="setWorkingDay(row.weekday, $any($event.target).checked)"
+                />
+              </td>
+              <td>
+                <input
+                  type="time"
+                  [value]="row.startTime"
+                  [disabled]="!row.isWorkingDay"
+                  (change)="setStartTime(row.weekday, $any($event.target).value)"
+                />
+              </td>
+              <td>
+                <input
+                  type="time"
+                  [value]="row.endTime"
+                  [disabled]="!row.isWorkingDay"
+                  (change)="setEndTime(row.weekday, $any($event.target).value)"
+                />
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <div class="admin-form-actions">
+      @if (scheduleError()) {
+        <p class="error-msg">{{ scheduleError() }}</p>
+      }
+      @if (scheduleSuccess()) {
+        <p class="success-msg">{{ scheduleSuccess() }}</p>
+      }
+      <button type="button" class="btn btn-solid" [disabled]="scheduleSubmitting()" (click)="onSaveSchedule()">
+        {{ scheduleSubmitting() ? 'Guardando…' : 'Guardar horario' }}
+      </button>
+    </div>
+  }
+</div>
+
+<div class="admin-card">
+  <h2>Días libres</h2>
+
+  <div class="admin-form">
+    <div class="admin-field">
+      <label for="tDate">Fecha</label>
+      <input id="tDate" type="date" [value]="newTimeOffDate()" (input)="newTimeOffDate.set($any($event.target).value)" />
+    </div>
+    <div class="admin-field span-2">
+      <label for="tReason">Motivo (opcional)</label>
+      <input id="tReason" type="text" placeholder="Vacaciones, feriado…" [value]="newTimeOffReason()" (input)="newTimeOffReason.set($any($event.target).value)" />
+    </div>
+    <div class="admin-form-actions">
+      @if (timeOffError()) {
+        <p class="error-msg">{{ timeOffError() }}</p>
+      }
+      <button type="button" class="btn btn-outline" [disabled]="!canAddTimeOff || timeOffSubmitting()" (click)="onAddTimeOff()">
+        {{ timeOffSubmitting() ? 'Agregando…' : '+ Agregar día libre' }}
+      </button>
+    </div>
+  </div>
+
+  @if (loadingTimeOff()) {
+    <p class="admin-empty">Cargando…</p>
+  } @else if (timeOff().length === 0) {
+    <p class="admin-empty">Sin días libres registrados.</p>
+  } @else {
+    <ul class="time-off-list">
+      @for (ex of timeOff(); track ex.id) {
+        <li>
+          <span>{{ formatDateEsCl(ex.date) }}{{ ex.reason ? ' — ' + ex.reason : '' }}</span>
+          <button type="button" class="btn btn-outline" (click)="onRemoveTimeOff(ex.id)">Quitar</button>
+        </li>
+      }
+    </ul>
+  }
+</div>

@@ -1,0 +1,125 @@
+<div class="admin-header">
+  <div>
+    <h1>Barberos</h1>
+    <p>El horario y los días libres de cada uno se editan en "Horarios".</p>
+  </div>
+  <button type="button" class="btn btn-solid" (click)="showForm() ? cancelForm() : startCreate()">
+    {{ showForm() ? 'Cerrar' : '+ Nuevo barbero' }}
+  </button>
+</div>
+
+@if (showForm()) {
+  <div class="admin-card">
+    <h2>{{ editingId() ? 'Editar barbero' : 'Nuevo barbero' }}</h2>
+
+    <div class="admin-form">
+      <div class="admin-field">
+        <label for="bName">Nombre</label>
+        <input id="bName" type="text" [value]="formName()" (input)="formName.set($any($event.target).value)" />
+      </div>
+      <div class="admin-field">
+        <label for="bSlug">Slug</label>
+        <input
+          id="bSlug"
+          type="text"
+          placeholder="juan-perez"
+          [value]="formSlug()"
+          (input)="formSlug.set($any($event.target).value)"
+        />
+      </div>
+      <div class="admin-field span-2">
+        <label for="bPhoto">URL de la foto</label>
+        <input
+          id="bPhoto"
+          type="text"
+          placeholder="barbers/barbero-1.jpg"
+          [value]="formPhotoUrl()"
+          (input)="formPhotoUrl.set($any($event.target).value)"
+        />
+      </div>
+      <div class="admin-field">
+        <label for="bWhatsapp">WhatsApp (solo números, con código de país)</label>
+        <input
+          id="bWhatsapp"
+          type="text"
+          placeholder="56912345678"
+          [value]="formWhatsapp()"
+          (input)="formWhatsapp.set($any($event.target).value)"
+        />
+      </div>
+      <div class="admin-field">
+        <label for="bRating">Rating (0 a 5)</label>
+        <input
+          id="bRating"
+          type="number"
+          min="0"
+          max="5"
+          step="0.1"
+          [value]="formRating()"
+          (input)="formRating.set(+$any($event.target).value)"
+        />
+      </div>
+      <div class="admin-field span-2">
+        <label for="bBio">Bio (opcional)</label>
+        <textarea id="bBio" [value]="formBio()" (input)="formBio.set($any($event.target).value)"></textarea>
+      </div>
+
+      <div class="admin-form-actions">
+        @if (formError()) {
+          <p class="error-msg">{{ formError() }}</p>
+        }
+        <button type="button" class="btn btn-solid" [disabled]="!canSubmitForm || formSubmitting()" (click)="onSubmitForm()">
+          {{ formSubmitting() ? 'Guardando…' : 'Guardar' }}
+        </button>
+        <button type="button" class="btn btn-outline" (click)="cancelForm()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+}
+
+<div class="admin-card">
+  @if (listError()) {
+    <p class="error-msg">{{ listError() }}</p>
+  }
+  @if (loading()) {
+    <p class="admin-empty">Cargando…</p>
+  } @else if (barbers().length === 0) {
+    <p class="admin-empty">Todavía no hay barberos cargados.</p>
+  } @else {
+    <div class="table-scroll">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Slug</th>
+            <th>WhatsApp</th>
+            <th>Rating</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of barbers(); track b.id) {
+            <tr [class.inactive]="!b.active">
+              <td>{{ b.name }}</td>
+              <td>{{ b.slug }}</td>
+              <td>{{ b.whatsappPhone }}</td>
+              <td>★ {{ b.ratingAverage.toFixed(1) }}</td>
+              <td>
+                <span class="status-pill" [class.confirmed]="b.active" [class.rejected]="!b.active">
+                  {{ b.active ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+              <td class="actions">
+                <button type="button" class="btn btn-outline" (click)="startEdit(b)">Editar</button>
+                <button type="button" class="btn btn-outline" (click)="toggleActive(b)">
+                  {{ b.active ? 'Desactivar' : 'Reactivar' }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
