@@ -32,20 +32,27 @@ Este documento es el registro de cómo se fue construyendo esa idea en la práct
 - **Fase 3 del cierre** (Paso 25): modelo `ScheduleException` (días libres) integrado a la disponibilidad, estado `CANCELLED`, `AdminModule` completo (mantenedores de reservas/barberos/servicios/horarios/días libres + reserva manual), todo protegido por `JwtAuthGuard`
 - **Fase 4 del cierre** (Paso 26): **panel de administración real** — `/admin/login` + `/admin` (dashboard, reservas, barberos, servicios, horarios, cuenta), primera vez que el cierre se ve en pantalla
 - **Ajustes post-Fase 4** (Paso 27, probando el panel de verdad): Reservas arranca sin filtro de fecha (antes se veía "vacía" si no había nada hoy); sección "Usuarios del panel" en Cuenta (multi-usuario, mismo rol `ADMIN` — "Opción A"); horarios candidatos cada hora en punto en vez de cada 15 min; `BookingsService.create()` ahora también rechaza fecha pasada, horario ya pasado hoy, y días libres (antes la API los aceptaba si le pegabas directo, aunque la UI ya no los ofrecía)
-- **Fase 5 del cierre — parte de código** (Paso 28): subida real de fotos de barberos a **Cloudinary** con firma (`POST /admin/uploads/signature`, `crypto` nativo, sin SDK; el archivo va directo del navegador a Cloudinary), input de archivo + preview en el panel de Barberos, `photoUrl` pasa a opcional (fallback de iniciales); `seed.ts` a placeholders limpios (barberos 1-3 con las 3 fotos ya commiteadas, 4-6 sin foto, rating 0); `render.yaml` + `netlify.toml` + `environment.prod.ts` listos. **Falta:** crear los proyectos en Cloudinary/Neon/Render/Netlify y el smoke test en producción (Parte D del Paso 28).
+- **Fase 5 del cierre — parte de código** (Paso 28): subida real de fotos de barberos a **Cloudinary** con firma (`POST /admin/uploads/signature`, `crypto` nativo, sin SDK; el archivo va directo del navegador a Cloudinary), input de archivo + preview en el panel de Barberos, `photoUrl` pasa a opcional (fallback de iniciales); `seed.ts` a placeholders limpios (barberos 1-3 con las 3 fotos ya commiteadas, 4-6 sin foto, rating 0); `render.yaml` + `netlify.toml` + `environment.prod.ts` listos.
+- **Fase 5 del cierre — despliegue en producción** (Paso 29): **el proyecto está desplegado y funcionando en producción.** Frontend en Netlify (`https://imperio-barber.netlify.app`, autodeploy desde `main`), backend en Render plan **free** (`https://imperio-barber-api.onrender.com`, se acepta el cold start por ser demo), base en Neon (`us-east-2`). Smoke test end-to-end pasado con Playwright contra el sitio real: reserva → `wa.me` → `/confirmar` → aceptar → CONFIRMADA; login del panel con la cuenta real; subida de foto a Cloudinary desde el panel.
 
-**⚠️ Estado del repo al cerrar esta sesión (2026-09-09):** commiteado y pusheado hasta el Paso 27
-(commit `78a58ae` ya incluye los 3 fixes de horarios/guardas). **Sin commitear:** todo el Paso 28
-(módulo de subida, `render.yaml`, `netlify.toml`, seed placeholder, `photoUrl` opcional) — mensaje de
-commit sugerido al final del Paso 28.
+**Estado del repo (2026-09-09):** todo commiteado y pusheado hasta el Paso 29. Paso 28 quedó en el
+commit `6749f81`; el ajuste de despliegue del Paso 29 en `61ce57f` (region ohio) y `1837995`
+(plan free + `migrate deploy` en el build). **Sin commitear:** solo `demo-imperio-barber.mp4`
+(untracked a propósito — es el video para el dueño).
 
 **🔜 Próximos pasos — Plan de cierre v1** (detalle completo en la *Parte 4* de este archivo):
-Terminar Imperio Barber completo y desplegado para portafolio, antes de congelarlo como base de la
-plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`).
-- **Fase 5 — despliegue:** el código ya está (Paso 28). Falta ejecutar los pasos con cuentas del
-  usuario: cuenta Cloudinary → Neon (`migrate deploy` + `seed` + `seed:admin`) → Render (Blueprint) →
-  Netlify → cablear `FRONTEND_URL` y `environment.prod.ts` → **smoke test en producción**.
-- **Fase 6 — CI/CD + pulido de portafolio:** GitHub Actions, README con links/capturas, OG tags, Lighthouse, tests e2e. También quedó anotado ahí un detalle cosmético menor: la tabla de Reservas corta la última columna en viewports angostos sin indicar que hay scroll horizontal.
+Falta solo la **Fase 6** para dar por cerrado Imperio Barber y congelarlo como base de la
+plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). Empieza el 2026-09-10.
+- **Fase 6 — CI/CD + pulido de portafolio** (detalle completo en la *Parte 4*):
+  1. **README acorde al proyecto** (lo primero que quiere el usuario): qué es, stack, links a
+     producción, **pantallazos** de sitio y panel, **link al video demo actualizado**, credenciales
+     de un usuario demo de solo lectura.
+  2. **Re-grabar `demo-imperio-barber.mp4`**: el actual solo muestra la reserva pública; el nuevo
+     tiene que **mostrar el panel de administración funcionando** (para eso lo construyó el usuario).
+  3. GitHub Actions (lint + tests backend con Node 22 + build frontend).
+  4. OG tags + `og:image`, pasada de Lighthouse, un par de tests e2e (supertest).
+  - Detalles cosméticos: (a) tabla de Reservas se corta en viewports angostos sin señal de scroll;
+    (b) hero de la landing muestra "4.9★ valoración clientes" hardcodeado sin reseñas reales.
 
 **📋 Ideas a futuro** (fuera de alcance del cierre — no construir sin que el cliente las priorice):
 - Sistema de reseñas reales de clientes + ranking "mejor barbero del mes/semana" y estimación de ingresos (Paso 20)
@@ -257,11 +264,29 @@ después se despliega, con datos placeholder si los reales de la barbería no ll
   - **Render** (backend): `render.yaml` — build `npm ci && npx prisma generate && npm run build`; preDeploy `npx prisma migrate deploy`; start `node dist/src/main`; health check `/health`; env vars (`DATABASE_URL`, `DIRECT_URL`, `FRONTEND_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `BOOKING_PENDING_TTL_MINUTES`, `NODE_ENV=production`). Plan Starter (sin cold start).
   - **Netlify** (frontend): `netlify.toml` — build `npm ci && npm run build`, publish `dist/frontend/browser`, redirect SPA `/* /index.html 200`. `environment.prod.ts` con la URL real de Render.
   - Actualizar `.env.example`. **Smoke test en producción**: landing · crear reserva · llega WhatsApp · `/confirmar` · `/admin/login` · panel end-to-end.
-- **Fase 6 — CI/CD + pulido de portafolio:**
-  - **GitHub Actions**: en cada push/PR a `main` → backend `npm ci` + `lint` + `test`; frontend `npm ci` + `build`.
-  - **README**: reemplazar "Demo en vivo 🔜" por links reales + GIF/capturas + credenciales de un usuario demo de solo lectura.
-  - Meta tags OG/Twitter + `og:image` en `index.html`. Pasada de Lighthouse. Un par de tests e2e (supertest) del ciclo de reserva.
-  - **Opcional**: subida real de fotos a object storage (decisión #2).
+- **Fase 6 — CI/CD + pulido de portafolio** (planificada 2026-09-09, se ejecuta a partir del 2026-09-10):
+  - **README acorde a lo que es el proyecto** (prioridad del usuario): descripción real (barbería en
+    Santiago, sistema de reservas por barbero + panel de administración), stack, links a
+    producción (`https://imperio-barber.netlify.app` y la API), **pantallazos** del sitio y del
+    panel, y **link al video demo actualizado**. Credenciales de un usuario demo de solo lectura
+    para que quien mire el repo pueda entrar al panel.
+  - **Re-grabar el video demo** (`demo-imperio-barber.mp4`): el actual solo muestra el flujo de
+    reserva público. El usuario creó el panel de administración justamente para poder **mostrar su
+    funcionamiento** — el video nuevo tiene que recorrer también el panel (login → dashboard →
+    reservas → barberos/servicios/horarios → subida de foto). Cómo se produce el video: ver la
+    memoria `reference-local-dev-environment`. Se puede grabar contra producción ahora que está
+    desplegado, o local. El script viejo se perdió (vive en el scratchpad de sesión) — rehacer con
+    el mismo enfoque (CDP screencast + concat con `duration` real por frame).
+  - **GitHub Actions**: en cada push/PR a `main` → backend `npm ci` + `lint` + `test` (con Node 22);
+    frontend `npm ci` + `build`.
+  - Meta tags OG/Twitter + `og:image` en `index.html`. Pasada de Lighthouse. Un par de tests e2e
+    (supertest) del ciclo de reserva.
+  - Detalle cosmético: el hero de la landing muestra "4.9★ valoración clientes" hardcodeado aunque
+    no hay reseñas reales (revisar ese copy — coherencia con el Paso 20).
+  - Detalle cosmético: la tabla de Reservas corta la última columna en viewports angostos sin señal
+    de scroll horizontal.
+  - **Ya hecho antes de tiempo**: subida real de fotos a object storage (decisión #2) — se adelantó
+    a la Fase 5, Paso 28.
 
 ### Paso 23: Fase 1 — Hardening y bugs previos al panel de administración
 
@@ -608,5 +633,59 @@ feat: subida de fotos de barberos a Cloudinary + archivos de despliegue (Fase 5)
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_013tfFoUCFxvhgb8gbZEkqZ9
 ```
+
+### Paso 29: Fase 5 — Despliegue en producción (Neon + Render + Netlify + Cloudinary)
+
+- **Objetivo:** ejecutar la Parte D del Paso 28 con las cuentas del usuario y dejar el proyecto
+  desplegado, con un link estable para mostrarle al dueño (reemplaza los túneles Cloudflare del
+  Paso 21, que se caían solos).
+
+- **Cloudinary:** cuenta free (cloud `zzqgeun6`). Las 3 credenciales (`CLOUDINARY_CLOUD_NAME` /
+  `_API_KEY` / `_API_SECRET`) van en `backend/.env` local y en Render.
+
+- **Neon:** proyecto en la región **`us-east-2` (AWS US East - Ohio)**, base `neondb`, rol
+  `neondb_owner` (la contraseña la genera Neon, viene en la connection string — no se crea a mano;
+  la cuenta de Neon entra con GitHub OAuth, sin password propia). Dos connection strings:
+  pooled (`-pooler` en el host) → `DATABASE_URL` (runtime, la usa `@prisma/adapter-pg`); directa
+  → `DIRECT_URL` (migraciones, la usa `prisma.config.ts`). Ambas con `sslmode=require&channel_binding=require`.
+  - Con `backend/.env` apuntado a Neon y **Node 22** (`nvm use`): `npx prisma migrate deploy`
+    (aplicó las 3 migraciones) · `npm run seed` (6 servicios + 6 barberos placeholder + horarios) ·
+    `npm run seed:admin` (cuenta del dueño: `marco.silvaponce10@gmail.com`).
+  - En `backend/.env` quedaron las URLs de Docker local comentadas, para poder volver a dev local.
+  - Aviso de `pg`: `sslmode=require` hoy se trata como alias de `verify-full`; en `pg` v9 va a
+    cambiar la semántica. No urge; anotado por si aparece un fallo de conexión a futuro.
+
+- **Render** (backend, `render.yaml` Blueprint):
+  - **Cambio de decisión vs. Parte 4:** se pasó de plan **Starter** a **Free**. El usuario aceptó
+    el cold start (~50 s tras 15 min inactivo) por ser una demo de portafolio. El plan free **no
+    tiene `preDeployCommand`**, así que `npx prisma migrate deploy` se movió al final del
+    `buildCommand` (corre en cada deploy, con las env vars ya disponibles en build).
+  - `region: ohio` (misma zona que Neon → menos latencia DB).
+  - URL resultante: `https://imperio-barber-api.onrender.com` (le atinó al nombre del `render.yaml`,
+    así que `environment.prod.ts` ya estaba correcto de antes — no hubo que recommitearlo).
+  - Env vars `sync:false` pegadas a mano en el dashboard; `JWT_SECRET` lo generó Render.
+  - `FRONTEND_URL` se seteó directo a `https://imperio-barber.netlify.app` (se sabía el nombre de
+    Netlify de antemano), así que no hizo falta el redeploy posterior de CORS del plan original.
+
+- **Netlify** (frontend, `netlify.toml`): sitio `imperio-barber` ya creado por el usuario, se le
+  linkeó el repo (`Continuous deployment` → `Link repository`). Build toma `netlify.toml` solo
+  (`base = frontend`, Node 22, `dist/frontend/browser`, redirect SPA). Autodeploy en cada push a
+  `main`. URL: `https://imperio-barber.netlify.app`.
+
+- **Smoke test en producción (Playwright contra el sitio real, no local):**
+  - Landing carga · CORS Netlify→Render OK (`access-control-allow-origin` correcto) · fallback SPA
+    de `/admin/login` → 200 · `/health` → `{status:ok,db:up}`.
+  - Flujo de reserva completo: elegir barbero/servicio/día/hora → `POST /bookings` → `201` con
+    `whatsappUrl` (`wa.me/56900000001?text=...`) → `/confirmar/:token` muestra "Pendiente" →
+    "Confirmar hora" → badge pasa a **CONFIRMADA**.
+  - Panel: login con `marco.silvaponce10@gmail.com` → dashboard · `/auth/me` → rol `ADMIN`.
+  - Subida de foto: `POST /admin/uploads/signature` → `201`, upload directo del navegador a
+    `api.cloudinary.com` → `200`, preview con la URL `res.cloudinary.com/zzqgeun6/...`, "Guardar" OK.
+  - Limpieza: las reservas de prueba (`PRUEBA SMOKE TEST`) se cancelaron por el API admin y la foto
+    de prueba del Barbero 4 se revirtió a vacío. El script de smoke test vive en el scratchpad de la
+    sesión (se pierde) — si hace falta repetirlo, rehacer con el mismo enfoque.
+
+- **Falta para cerrar (Fase 6):** CI/CD (GitHub Actions), README de portafolio con capturas/links,
+  OG tags, Lighthouse, tests e2e. Sin bloqueos.
 
 _(se sigue completando a medida que se construye)_
