@@ -12,13 +12,13 @@ services:
   - type: web
     name: imperio-barber-api
     runtime: node
-    plan: starter          # sin cold start; preDeployCommand requiere plan pago
+    plan: free             # demo: se acepta el cold start (~50s tras 15 min inactivo)
     rootDir: backend
     region: ohio          # misma zona que Neon (us-east-2) -> menor latencia DB
     # --include=dev: con NODE_ENV=production, `npm ci` omitiría prisma / nest / tsx /
     # typescript / dotenv, que el build y la migración necesitan.
-    buildCommand: npm ci --include=dev && npx prisma generate && npm run build
-    preDeployCommand: npx prisma migrate deploy
+    # El plan free no tiene preDeployCommand, así que `migrate deploy` va al final del build.
+    buildCommand: npm ci --include=dev && npx prisma generate && npm run build && npx prisma migrate deploy
     startCommand: node dist/src/main
     healthCheckPath: /health
     envVars:
