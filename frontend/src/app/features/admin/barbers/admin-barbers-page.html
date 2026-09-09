@@ -28,14 +28,41 @@
         />
       </div>
       <div class="admin-field span-2">
-        <label for="bPhoto">URL de la foto</label>
-        <input
-          id="bPhoto"
-          type="text"
-          placeholder="barbers/barbero-1.jpg"
-          [value]="formPhotoUrl()"
-          (input)="formPhotoUrl.set($any($event.target).value)"
-        />
+        <label for="bPhoto">Foto (opcional)</label>
+        <div class="photo-field">
+          @if (formPhotoUrl().trim().length > 0) {
+            <img class="photo-preview" [src]="formPhotoUrl()" alt="Vista previa de la foto" />
+          } @else {
+            <div class="photo-preview empty">Sin foto</div>
+          }
+          <div class="photo-field-controls">
+            <input
+              id="bPhoto"
+              type="text"
+              placeholder="Pega una URL o sube un archivo"
+              [value]="formPhotoUrl()"
+              (input)="formPhotoUrl.set($any($event.target).value)"
+            />
+            <div class="photo-field-actions">
+              <label class="btn btn-outline" [class.disabled]="uploading()">
+                {{ uploading() ? 'Subiendo…' : 'Subir archivo' }}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  [disabled]="uploading()"
+                  (change)="onPhotoSelected($event)"
+                />
+              </label>
+              @if (formPhotoUrl().trim().length > 0) {
+                <button type="button" class="btn btn-outline" (click)="clearPhoto()">Quitar</button>
+              }
+            </div>
+            @if (uploadError()) {
+              <p class="error-msg">{{ uploadError() }}</p>
+            }
+          </div>
+        </div>
       </div>
       <div class="admin-field">
         <label for="bWhatsapp">WhatsApp (solo números, con código de país)</label>

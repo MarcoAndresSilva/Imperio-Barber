@@ -60,17 +60,20 @@ const SERVICES = [
   },
 ];
 
-// PLACEHOLDER: nombres y WhatsApp reales de cada barbero pendientes del cliente (ver
-// ARCHITECTURE.md, Paso 2). Fotos: los primeros 3 ya son reales (frontend/public/barbers/);
-// falta el resto.
+// PLACEHOLDER limpio para el despliegue (ver ARCHITECTURE.md, Fase 5). El dueño ajusta
+// nombre / WhatsApp / foto de cada barbero desde el panel /admin:
+//  - barberos 1-3: usan las 3 fotos reales ya commiteadas (frontend/public/barbers/,
+//    servidas por Netlify).
+//  - barberos 4-6: sin foto (photoUrl '') -> el sitio muestra el círculo con iniciales
+//    hasta que el dueño suba la real por el panel (subida a Cloudinary).
+//  - whatsappPhone: número ficticio, no personal. El dueño lo reemplaza antes de operar.
 const REAL_PHOTOS = 3;
 const BARBERS = Array.from({ length: 6 }, (_, i) => ({
   name: `Barbero ${i + 1}`,
   slug: `barbero-${i + 1}`,
-  photoUrl:
-    i < REAL_PHOTOS ? `barbers/barbero-${i + 1}.jpg` : `barbers/placeholder-${i + 1}.jpg`,
+  photoUrl: i < REAL_PHOTOS ? `barbers/barbero-${i + 1}.jpg` : '',
   whatsappPhone: `5690000000${i + 1}`,
-  ratingAverage: 4.8,
+  ratingAverage: 0,
   ratingCount: 0,
 }));
 

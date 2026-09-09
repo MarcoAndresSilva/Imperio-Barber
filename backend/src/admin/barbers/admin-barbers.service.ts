@@ -34,7 +34,9 @@ export class AdminBarbersService {
 
   create(dto: CreateBarberDto) {
     return this.withUniqueConflictHandling(() =>
-      this.prisma.barber.create({ data: dto }),
+      // `photoUrl` es opcional en el panel (cae al fallback de iniciales), pero el
+      // schema exige el string — se guarda '' cuando no viene.
+      this.prisma.barber.create({ data: { ...dto, photoUrl: dto.photoUrl ?? '' } }),
     );
   }
 

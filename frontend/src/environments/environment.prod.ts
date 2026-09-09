@@ -1,5 +1,6 @@
-// TODO: reemplazar por la URL real del backend en Render una vez desplegado.
+// URL del backend en Render. El nombre del servicio es `imperio-barber-api`
+// (ver render.yaml); si Render le agrega un sufijo al crearlo, ajustar acá.
 export const environment = {
   production: true,
-  apiUrl: 'https://REEMPLAZAR-con-la-url-de-render.onrender.com',
+  apiUrl: 'https://imperio-barber-api.onrender.com',
 };

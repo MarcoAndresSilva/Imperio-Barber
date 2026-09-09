@@ -25,10 +25,10 @@ export class CreateBarberDto {
   })
   slug: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(300)
-  photoUrl: string;
+  photoUrl?: string;
 
   @IsString()
   @Matches(/^\d{8,15}$/, {

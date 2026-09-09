@@ -5,7 +5,7 @@
   (click)="selectBarber.emit(barber().id)"
 >
   <div class="photo">
-    @if (!imageFailed()) {
+    @if (barber().photoUrl && !imageFailed()) {
       <img
         [src]="barber().photoUrl"
         [alt]="barber().name"

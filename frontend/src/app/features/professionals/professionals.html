@@ -28,7 +28,7 @@
       <div class="panel" [class.fading]="panelFading()">
         <div class="left">
           <div class="photo">
-            @if (!leftPhotoFailed()) {
+            @if (barber.photoUrl && !leftPhotoFailed()) {
               <img
                 [src]="barber.photoUrl"
                 [alt]="barber.name"

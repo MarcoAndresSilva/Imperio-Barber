@@ -32,24 +32,25 @@ Este documento es el registro de cómo se fue construyendo esa idea en la práct
 - **Fase 3 del cierre** (Paso 25): modelo `ScheduleException` (días libres) integrado a la disponibilidad, estado `CANCELLED`, `AdminModule` completo (mantenedores de reservas/barberos/servicios/horarios/días libres + reserva manual), todo protegido por `JwtAuthGuard`
 - **Fase 4 del cierre** (Paso 26): **panel de administración real** — `/admin/login` + `/admin` (dashboard, reservas, barberos, servicios, horarios, cuenta), primera vez que el cierre se ve en pantalla
 - **Ajustes post-Fase 4** (Paso 27, probando el panel de verdad): Reservas arranca sin filtro de fecha (antes se veía "vacía" si no había nada hoy); sección "Usuarios del panel" en Cuenta (multi-usuario, mismo rol `ADMIN` — "Opción A"); horarios candidatos cada hora en punto en vez de cada 15 min; `BookingsService.create()` ahora también rechaza fecha pasada, horario ya pasado hoy, y días libres (antes la API los aceptaba si le pegabas directo, aunque la UI ya no los ofrecía)
+- **Fase 5 del cierre — parte de código** (Paso 28): subida real de fotos de barberos a **Cloudinary** con firma (`POST /admin/uploads/signature`, `crypto` nativo, sin SDK; el archivo va directo del navegador a Cloudinary), input de archivo + preview en el panel de Barberos, `photoUrl` pasa a opcional (fallback de iniciales); `seed.ts` a placeholders limpios (barberos 1-3 con las 3 fotos ya commiteadas, 4-6 sin foto, rating 0); `render.yaml` + `netlify.toml` + `environment.prod.ts` listos. **Falta:** crear los proyectos en Cloudinary/Neon/Render/Netlify y el smoke test en producción (Parte D del Paso 28).
 
-**⚠️ Estado del repo al cerrar esta sesión (2026-09-05):** commiteado y pusheado hasta Fases 2, 3 y 4
-completas (commits `01d25c0`, `c99a03b`, `8326307` — este último ya incluye el fix del filtro de Reservas
-y "Usuarios del panel"). **Sin commitear:** solo los 3 fixes de `bookings.service.ts`/`availability.ts`
-(horarios cada hora + guardas de fecha pasada/día libre) — mensaje de commit sugerido al final del Paso 27.
+**⚠️ Estado del repo al cerrar esta sesión (2026-09-09):** commiteado y pusheado hasta el Paso 27
+(commit `78a58ae` ya incluye los 3 fixes de horarios/guardas). **Sin commitear:** todo el Paso 28
+(módulo de subida, `render.yaml`, `netlify.toml`, seed placeholder, `photoUrl` opcional) — mensaje de
+commit sugerido al final del Paso 28.
 
 **🔜 Próximos pasos — Plan de cierre v1** (detalle completo en la *Parte 4* de este archivo):
 Terminar Imperio Barber completo y desplegado para portafolio, antes de congelarlo como base de la
-plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). **El despliegue va al final** —
-primero se construye todo, incluido el panel de administración.
-- **Fase 5 — Datos reales + despliegue:** seed real (o placeholders limpios), Neon + `render.yaml` + `netlify.toml`, smoke test en producción.
+plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`).
+- **Fase 5 — despliegue:** el código ya está (Paso 28). Falta ejecutar los pasos con cuentas del
+  usuario: cuenta Cloudinary → Neon (`migrate deploy` + `seed` + `seed:admin`) → Render (Blueprint) →
+  Netlify → cablear `FRONTEND_URL` y `environment.prod.ts` → **smoke test en producción**.
 - **Fase 6 — CI/CD + pulido de portafolio:** GitHub Actions, README con links/capturas, OG tags, Lighthouse, tests e2e. También quedó anotado ahí un detalle cosmético menor: la tabla de Reservas corta la última columna en viewports angostos sin indicar que hay scroll horizontal.
 
 **📋 Ideas a futuro** (fuera de alcance del cierre — no construir sin que el cliente las priorice):
 - Sistema de reseñas reales de clientes + ranking "mejor barbero del mes/semana" y estimación de ingresos (Paso 20)
 - **"Opción B" (pedida, pospuesta a otra sesión):** cuentas por barbero con permisos acotados (cada uno ve/gestiona solo su propia agenda y horario) — hoy todos los usuarios del panel tienen el mismo rol `ADMIN` (Paso 27, "Opción A"). Requiere nuevo rol, permisos por recurso, más pantallas.
 - PWA instalable + notificaciones automáticas
-- Subida real de fotos a object storage (el cierre usa un campo `photoUrl` de texto) — opcional al final de la Fase 6
 - Pivote a SaaS multi-tenant — ya tiene repo y roadmap propios en `../plataforma-reservas/`, deriva de este proyecto una vez cerrado
 
 ---
@@ -505,6 +506,107 @@ fix(backend): horarios cada hora en punto + guardas de fecha pasada y día libre
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_019hon2UMux6EjKH55pBYQ3M
+```
+
+### Paso 28: Fase 5 — Subida de fotos (Cloudinary) + archivos de despliegue
+
+- **Objetivo:** cerrar el código de la Fase 5 (dejar el proyecto listo para desplegar en
+  Neon + Render + Netlify con placeholders limpios) y, decisión del usuario, **adelantar** la
+  subida real de fotos de barberos (que la Parte 4 tenía como opcional de Fase 6) para que el
+  dueño pueda cargar las fotos desde el panel en producción, sin tocar código.
+
+- **Provider elegido: Cloudinary (plan free, sin tarjeta) con subida firmada.**
+  - Se descartó Cloudflare R2: exige registrar tarjeta igual, deps más pesadas (`@aws-sdk/*`) y
+    hay que configurar el servido público del bucket.
+  - **`AdminUploadsModule`** (`src/admin/uploads/`, bajo `JwtAuthGuard`, registrado en
+    `AdminModule`): `POST /admin/uploads/signature` devuelve `{ cloudName, apiKey, timestamp,
+    folder, signature }`. La firma es `sha1(<params ordenados k=v unidos por & > + api_secret)`
+    en hex — el formato exacto que espera Cloudinary — hecha con `crypto.createHash` nativo,
+    **cero dependencias nuevas en runtime**. Carpeta fija `imperio-barber/barbers`.
+  - El **archivo nunca pasa por el backend**: el navegador lo sube directo a
+    `api.cloudinary.com/v1_1/<cloud>/image/upload` con los datos firmados. Esto vuelve
+    irrelevante el disco efímero de Render y no consume su ancho de banda.
+  - Env vars nuevas: `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET`
+    (en `.env.example` y `render.yaml`).
+
+- **Frontend:**
+  - `core/services/upload.service.ts`: pide la firma, arma el `FormData` y sube a Cloudinary;
+    devuelve `secure_url`. Valida en cliente: tipo `image/*` y ≤ 5 MB antes de llamar a nada.
+    El `authInterceptor` solo agrega `Bearer` a URLs con `/admin` o `/auth`, así que la llamada
+    a Cloudinary sale limpia y la de la firma va autenticada — sin tocar el interceptor.
+  - Panel **Barberos**: el campo "URL de la foto" ahora es "Foto (opcional)" con preview,
+    botón "Subir archivo" (`<input type=file hidden>` dentro de un `<label>`), botón "Quitar",
+    y estados `uploading` / `uploadError`. El campo de texto se mantiene (pegar una URL externa
+    o editar sigue funcionando).
+  - **`photoUrl` pasa a opcional** en toda la cadena: DTO (`@IsOptional`, sin `@MinLength(1)`),
+    `AdminBarbersService.create` guarda `''` si no viene, `canSubmitForm` ya no lo exige, y
+    `barber-card.html` / `professionals.html` renderizan el `<img>` solo si `photoUrl` tiene
+    valor (guarda `barber().photoUrl && ...`) — antes dependían solo del evento `(error)`.
+
+- **Seed a placeholders limpios** (`prisma/seed.ts`): 6 barberos `Barbero 1..6`; los 1-3 con las
+  3 fotos reales ya commiteadas (`frontend/public/barbers/`, servidas por Netlify), los 4-6 sin
+  foto (círculo con iniciales); `ratingAverage: 0` / `ratingCount: 0` (el rating no se muestra
+  sin reseñas, Paso 20); `whatsappPhone` ficticio no personal. Servicios sin cambios.
+
+- **Archivos de despliegue** (raíz del repo):
+  - **`render.yaml`** (Blueprint): servicio web `imperio-barber-api`, `rootDir: backend`, plan
+    Starter (sin cold start; `preDeployCommand` requiere plan pago). Build
+    `npm ci --include=dev && npx prisma generate && npm run build` — el `--include=dev` es
+    necesario porque con `NODE_ENV=production` un `npm ci` normal omitiría `prisma`, `nest`,
+    `tsx`, `typescript` y `dotenv`, que el build y la migración necesitan. `preDeployCommand:
+    npx prisma migrate deploy`; start `node dist/src/main`; health `/health`; `JWT_SECRET` con
+    `generateValue: true`, el resto de secretos `sync: false` (se pegan en el dashboard).
+  - **`netlify.toml`**: `base = "frontend"`, build `npm ci && npm run build`, publish
+    `dist/frontend/browser`, `NODE_VERSION = "22.23.1"` (igual a `.nvmrc`; Angular 22 exige
+    ≥ 22.22.3), redirect SPA `/* → /index.html 200` (para `/confirmar/:token` y `/admin/**`).
+  - **`environment.prod.ts`**: `apiUrl` apuntando a `https://imperio-barber-api.onrender.com`
+    (ajustar si Render le pone un sufijo al nombre).
+
+- **Verificación real (no solo build):**
+  - Backend `npm run build` OK · `npm test` **40/40** (2 nuevos: `signParams` determinística;
+    `createBarberPhotoSignature` devuelve una firma válida). Frontend `npm run build` OK ·
+    `npm test` 2/2.
+  - **Ojo con Node:** el shell arrancó en Node 20 y `argon2` (binario nativo compilado para
+    Node 22) hacía *segfault* en `auth.service.spec` / `admin-users.service.spec`. Con
+    `nvm use` (toma `.nvmrc` → 22.23.1) los 40 tests pasan. Recordatorio: en esta máquina hay
+    que activar el Node del proyecto antes de correr nada del backend.
+  - En vivo contra el backend (`start:prod`, Node 22): `/health` → `{status:ok,db:up}`;
+    `POST /admin/uploads/signature` sin token → **401**; con token real → `200` con la firma,
+    y `sha1` recalculado a mano coincide con el valor devuelto (formato Cloudinary correcto).
+  - **Pendiente de verificar** (necesita cuentas del usuario): subir una foto de verdad desde
+    el panel (local con `CLOUDINARY_*` reales, y luego en producción) y el smoke test completo.
+
+- **Pasos de despliegue (Parte D del plan, los ejecuta el usuario con sus cuentas):**
+  1. Cuenta free en cloudinary.com → copiar Cloud name / API Key / API Secret.
+  2. Neon: proyecto nuevo → connection strings pooled (`DATABASE_URL`) y directa (`DIRECT_URL`).
+  3. Local apuntando a Neon: `npx prisma migrate deploy` · `npm run seed` · `npm run seed:admin`.
+  4. Render: New → Blueprint → repo → pegar env vars `sync:false` → deploy → anotar URL.
+  5. Poner esa URL en `environment.prod.ts` y commitear.
+  6. Netlify: New site from Git → toma `netlify.toml` → deploy → anotar URL.
+  7. Render: setear `FRONTEND_URL` = URL de Netlify → redeploy (CORS).
+  8. Smoke test en prod: landing · reserva · WhatsApp · `/confirmar` · `/admin/login` · subir
+     una foto de barbero.
+
+**Commit sugerido** (`backend/src/admin/uploads/*`, `backend/src/admin/admin.module.ts`,
+`backend/src/admin/barbers/{dto/create-barber.dto.ts,admin-barbers.service.ts}`,
+`backend/prisma/seed.ts`, `backend/.env.example`, `frontend/src/app/core/services/upload.service.ts`,
+`frontend/src/app/features/admin/barbers/*`, `frontend/src/app/features/professionals/{barber-card/barber-card.html,professionals.html}`,
+`frontend/src/environments/environment.prod.ts`, `render.yaml`, `netlify.toml`, `ARCHITECTURE.md`):
+
+```
+feat: subida de fotos de barberos a Cloudinary + archivos de despliegue (Fase 5)
+
+- Backend: AdminUploadsModule — POST /admin/uploads/signature firma subidas a
+  Cloudinary con crypto nativo (sin SDK); el archivo va directo del navegador a
+  Cloudinary, nunca pasa por Render.
+- Frontend: UploadService + input de archivo con preview en el panel de Barberos.
+  photoUrl pasa a opcional en toda la cadena (fallback de iniciales).
+- seed.ts: placeholders limpios (barberos 1-3 con foto, 4-6 sin foto, rating 0).
+- render.yaml (Blueprint backend) + netlify.toml (frontend) + environment.prod.ts.
+- 2 tests nuevos de la firma. 40/40 backend, 2/2 frontend.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_013tfFoUCFxvhgb8gbZEkqZ9
 ```
 
 _(se sigue completando a medida que se construye)_

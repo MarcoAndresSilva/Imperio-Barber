@@ -4,6 +4,7 @@ import {
   AdminBarbersApiService,
   CreateBarberRequest,
 } from '../../../core/services/admin-barbers-api.service';
+import { UploadService } from '../../../core/services/upload.service';
 import { AdminBarber } from '../../../core/models/admin.model';
 
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -17,6 +18,7 @@ const PHONE_RE = /^\d{8,15}$/;
 })
 export class AdminBarbersPage {
   private readonly api = inject(AdminBarbersApiService);
+  private readonly uploads = inject(UploadService);
 
   protected readonly barbers = signal<AdminBarber[]>([]);
   protected readonly loading = signal(true);
@@ -33,6 +35,9 @@ export class AdminBarbersPage {
   protected readonly formRating = signal(0);
   protected readonly formSubmitting = signal(false);
   protected readonly formError = signal<string | null>(null);
+
+  protected readonly uploading = signal(false);
+  protected readonly uploadError = signal<string | null>(null);
 
   constructor() {
     this.reload();
@@ -61,6 +66,7 @@ export class AdminBarbersPage {
     this.formBio.set('');
     this.formRating.set(0);
     this.formError.set(null);
+    this.uploadError.set(null);
     this.showForm.set(true);
   }
 
@@ -73,6 +79,7 @@ export class AdminBarbersPage {
     this.formBio.set(barber.bio ?? '');
     this.formRating.set(barber.ratingAverage);
     this.formError.set(null);
+    this.uploadError.set(null);
     this.showForm.set(true);
   }
 
@@ -80,15 +87,46 @@ export class AdminBarbersPage {
     this.showForm.set(false);
     this.editingId.set(null);
     this.formError.set(null);
+    this.uploadError.set(null);
   }
 
   protected get canSubmitForm(): boolean {
     return (
+      !this.uploading() &&
       this.formName().trim().length >= 2 &&
       SLUG_RE.test(this.formSlug().trim()) &&
-      this.formPhotoUrl().trim().length > 0 &&
       PHONE_RE.test(this.formWhatsapp().trim())
     );
+  }
+
+  /** Sube la foto elegida a Cloudinary y deja su URL en el campo `formPhotoUrl`. */
+  protected onPhotoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.uploading.set(true);
+    this.uploadError.set(null);
+
+    this.uploads.uploadBarberPhoto(file).subscribe({
+      next: (url) => {
+        this.formPhotoUrl.set(url);
+        this.uploading.set(false);
+        input.value = '';
+      },
+      error: (err: unknown) => {
+        this.uploading.set(false);
+        input.value = '';
+        this.uploadError.set(
+          err instanceof Error ? err.message : 'No pudimos subir la foto.',
+        );
+      },
+    });
+  }
+
+  protected clearPhoto(): void {
+    this.formPhotoUrl.set('');
+    this.uploadError.set(null);
   }
 
   protected onSubmitForm(): void {

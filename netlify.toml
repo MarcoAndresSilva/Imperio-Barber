@@ -1,0 +1,18 @@
+# Netlify — sitio estático (frontend Angular) de Imperio Barber.
+# El backend va en Render; la URL real se configura en src/environments/environment.prod.ts.
+
+[build]
+  base = "frontend"
+  command = "npm ci && npm run build"
+  publish = "dist/frontend/browser"
+
+[build.environment]
+  # Igual que .nvmrc (raíz). Angular 22 exige Node >= 22.22.3.
+  NODE_VERSION = "22.23.1"
+
+# SPA: todo lo que no sea un archivo real cae en index.html
+# (rutas del cliente: /confirmar/:token, /admin/**).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
