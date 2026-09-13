@@ -8,7 +8,7 @@
     @if (barber().photoUrl && !imageFailed()) {
       <img
         [src]="barber().photoUrl"
-        [alt]="barber().name"
+        alt=""
         (error)="onImageError()"
       />
     } @else {

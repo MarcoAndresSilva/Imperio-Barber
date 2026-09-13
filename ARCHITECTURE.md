@@ -54,7 +54,8 @@ plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). Empieza el 2
   3. ✅ **GitHub Actions** (Paso 32): `.github/workflows/ci.yml`, lint+test backend (Node 22) + build
      frontend en cada push/PR a `main`. De paso se arreglaron 3 bugs de tipado en tests que nadie
      había notado porque el lint nunca se había corrido en este repo.
-  4. OG tags + `og:image`, pasada de Lighthouse, un par de tests e2e (supertest).
+  4. ✅ **OG tags + `og:image` + pasada de Lighthouse** (Paso 33): Accessibility y SEO en 100 tras
+     los fixes. Falta la segunda mitad de este punto: un par de tests e2e (supertest).
   - Detalles cosméticos: (a) tabla de Reservas se corta en viewports angostos sin señal de scroll;
     (b) hero de la landing muestra "4.9★ valoración clientes" hardcodeado sin reseñas reales.
 
@@ -821,5 +822,41 @@ Claude-Session: https://claude.ai/code/session_013tfFoUCFxvhgb8gbZEkqZ9
   warning preexistente en `main.ts`, no bloquea), 43/43 tests, build backend y frontend OK.
 - Frontend no tiene `lint` configurado en `package.json` — el job de CI solo hace `build`, tal como
   pedía el plan original (no se agregó ESLint al frontend porque no estaba pedido).
+
+### Paso 33: Fase 6, punto 4 (parte 1) — OG tags, `og:image`, y pasada de Lighthouse
+
+- **OG tags:** `frontend/src/index.html` no tenía ninguno (solo `<title>` y `description`). Se
+  agregaron Open Graph + Twitter Card completos (`og:title`, `og:description`, `og:url`,
+  `og:image` + width/height, `og:locale=es_CL`, `twitter:card=summary_large_image`).
+- **`og-image.jpg` (1200×630):** no existía ningún archivo de imagen de marca estático — el logo es
+  un componente SVG inline (`design-system/logo/`), no sirve como `og:image` directo. Se generó con
+  Playwright, capturando el hero real de producción a esa resolución exacta — cero diseño inventado,
+  es la marca real tal como se ve hoy.
+- **Lighthouse contra producción (baseline, antes de tocar nada):** Performance 65 · **Accessibility
+  97** · **Best Practices 100** · **SEO 92**. El número bajo es Performance — se documenta como
+  conocido, no se ataca a fondo en este paso (implicaría reprocesar imágenes a WebP/AVIF con
+  `srcset`, más trabajo del que pide un "pase de Lighthouse" puntual); si el usuario prioriza subir
+  ese número más adelante, es su propio paso.
+- **3 problemas reales sí se corrigieron** (baratos, alto impacto en el score, no rediseño):
+  1. **`robots.txt` devolvía HTML:** no existía el archivo — Netlify hacía caer `/robots.txt` en el
+     fallback SPA (`/* /index.html 200`), Lighthouse lo marcaba inválido. Se agregó
+     `frontend/public/robots.txt` real (+ `sitemap.xml` con la única URL pública real, la home) —
+     como son archivos estáticos, Netlify los sirve antes que el redirect (no tiene `force = true`).
+  2. **Orden de headings roto en 2 lugares** (`heading-order`, score 0): en "Nosotros"
+     (`nosotros.html`) los 3 títulos de feature eran `<h4>` viniendo de un `<h2>`, saltándose el
+     `<h3>` (que sí se usa en Servicios e Info). En el footer, "Navegación"/"Contacto" eran `<h5>`.
+     Se bajaron ambos a `<h3>` (mismo nivel que el resto de subtítulos de sección) — ajustado también
+     el selector `h4`/`h5` en los `.scss` correspondientes para no perder el estilo visual.
+  3. **`alt` redundante en las fotos de barberos** (`image-redundant-alt`): `barber-card.html` tenía
+     `[alt]="barber().name"` en la foto, pero el nombre ya se muestra como texto justo debajo —
+     un lector de pantalla lo anunciaba dos veces. Se cambió a `alt=""` (la foto es puramente
+     decorativa frente a un nombre ya visible en texto).
+- **Verificación real:** build del frontend con los 3 fixes, servido con un static server local, y
+  **Lighthouse corrido de nuevo contra esa build corregida** (no solo "debería andar"): Accessibility
+  97→**100**, SEO 92→**100**, `heading-order` y `robots-txt` pasan, `image-redundant-alt` deja de
+  aplicar. (Performance/Best Practices del server local no son comparables 1:1 con producción — el
+  static server local no tiene CORS habilitado hacia el API de Render, así que salen errores de CORS
+  en consola que no existen en el sitio real; una vez desplegado corresponde correr Lighthouse una
+  vez más contra la URL real para confirmar el número final).
 
 _(se sigue completando a medida que se construye)_
