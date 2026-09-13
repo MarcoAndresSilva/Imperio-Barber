@@ -45,11 +45,12 @@ commit `6749f81`; el ajuste de despliegue del Paso 29 en `61ce57f` (region ohio)
 Falta solo la **Fase 6** para dar por cerrado Imperio Barber y congelarlo como base de la
 plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). Empieza el 2026-09-10.
 - **Fase 6 — CI/CD + pulido de portafolio** (detalle completo en la *Parte 4*):
-  1. **README acorde al proyecto** (lo primero que quiere el usuario): qué es, stack, links a
-     producción, **pantallazos** de sitio y panel, **link al video demo actualizado**, credenciales
-     de un usuario demo de solo lectura.
-  2. **Re-grabar `demo-imperio-barber.mp4`**: el actual solo muestra la reserva pública; el nuevo
-     tiene que **mostrar el panel de administración funcionando** (para eso lo construyó el usuario).
+  1. ✅ **README acorde al proyecto** (Paso 31): qué es, stack, links a producción, **4 pantallazos**
+     reales (landing, profesionales, dashboard, barberos), **link al video demo** (se decidió
+     comitear el mp4 al repo — ya pesa poco, 2.2MB). Sin credenciales demo: se decidió no dar login
+     real del panel en un README público (solo existe el rol `ADMIN`, con permiso total) — se
+     documentó con capturas y el video en su lugar.
+  2. ✅ **Re-grabar `demo-imperio-barber.mp4`**: hecho en el Paso 30, ya muestra el panel completo.
   3. GitHub Actions (lint + tests backend con Node 22 + build frontend).
   4. OG tags + `og:image`, pasada de Lighthouse, un par de tests e2e (supertest).
   - Detalles cosméticos: (a) tabla de Reservas se corta en viewports angostos sin señal de scroll;
@@ -757,5 +758,36 @@ Claude-Session: https://claude.ai/code/session_013tfFoUCFxvhgb8gbZEkqZ9
   Neon (login real, dashboard renderizado, caso vacío visible tal cual porque las reservas de prueba
   de este mes ya estaban canceladas) — capturas verificadas antes de dar el paso por cerrado, no solo
   build.
+
+### Paso 31: Fase 6, punto 1 — README de portafolio
+
+- **Objetivo:** el README que había (de antes del despliegue, 24 de agosto) decía "no tiene sistema
+  de login" y "demo en curso" — completamente desactualizado frente a lo que existe hoy (panel con
+  auth, despliegue real, KPIs). Reescribirlo para que sirva como carta de presentación del proyecto.
+- **Capturas reales (`docs/screenshots/`):** 4 pantallazos tomados con Playwright contra
+  **producción** (no local, no mocks): landing, sección Profesionales con el flujo de reserva,
+  Dashboard del panel (con los KPIs del Paso 30), y Barberos (CRUD con fotos reales). Se descartó
+  una primera captura de "Reservas" por mostrar sin filtrar toda la data de prueba acumulada
+  (`PRUEBA SMOKE TEST`, `PRUEBA DEMO VIDEO`) — no apta para un README público; se reemplazó por
+  Barberos en vez de perder tiempo armando un filtro solo para la foto.
+- **Dos decisiones de alcance, confirmadas con el usuario antes de escribir el README:**
+  1. **El video sí se comitea al repo.** La convención hasta ahora era dejar `demo-imperio-barber.mp4`
+     untracked "a propósito, es para el dueño" (Paso 29) — pero el plan de Fase 6 pedía linkearlo
+     desde el README, y ahora pesa solo 2.2MB (bajó de los 2.6MB originales al regrabarlo más corto
+     en el Paso 30), así que comitearlo es lo más simple y estándar para un repo de portafolio.
+  2. **Sin credenciales de demo en el README.** El plan original pedía "un usuario demo de solo
+     lectura", pero el sistema **no tiene rol de solo lectura** — solo existe `ADMIN`, con permiso
+     total (puede borrar barberos, cancelar reservas reales; Paso 24, decisión #1). Dar ese login en
+     un README público sería exponer el panel real a que cualquiera lo edite. Se optó por documentar
+     el panel con capturas + el video en vez de construir un rol nuevo (`VIEWER`) solo para esto —
+     queda anotado en "Fuera de alcance" del README por si se prioriza más adelante.
+- **Contenido nuevo del README:** demo en vivo (links a Netlify/Render + video), sección de capturas,
+  funcionalidades separadas en "sitio público" vs. "panel de administración" (antes solo describía el
+  sitio público), sección de autenticación actualizada (JWT del panel, un solo rol), estructura del
+  repo actualizada (`admin/`, `auth/`, `docs/screenshots/`), variables de entorno con las que se
+  agregaron en las Fases 2-5 (`JWT_SECRET`, `ADMIN_*`, `CLOUDINARY_*`) que el README viejo no tenía.
+  "Fuera de alcance" actualizado con lo que salió del Paso 30 (features de AgendaIA que son alcance
+  del SaaS, no de Imperio) en vez de la lista vieja (que todavía decía "panel de administración" como
+  pendiente, ya construido hace 4 pasos).
 
 _(se sigue completando a medida que se construye)_
