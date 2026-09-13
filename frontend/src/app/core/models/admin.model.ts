@@ -52,6 +52,11 @@ export interface AdminUserSummary {
   createdAt: string;
 }
 
+export interface DashboardStats {
+  monthRevenueClp: number;
+  topService: { id: string; name: string; count: number } | null;
+}
+
 export interface AdminBooking {
   id: string;
   customerName: string;

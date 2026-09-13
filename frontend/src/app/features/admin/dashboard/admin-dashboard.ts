@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AdminBookingsApiService } from '../../../core/services/admin-bookings-api.service';
-import { AdminBooking } from '../../../core/models/admin.model';
+import { AdminDashboardApiService } from '../../../core/services/admin-dashboard-api.service';
+import { AdminBooking, DashboardStats } from '../../../core/models/admin.model';
 import { formatClp } from '../../../core/utils/currency.util';
 import { formatMinutesToHHMM, todayInChileStr } from '../../../core/utils/date.util';
 
@@ -14,6 +15,7 @@ import { formatMinutesToHHMM, todayInChileStr } from '../../../core/utils/date.u
 })
 export class AdminDashboard {
   private readonly api = inject(AdminBookingsApiService);
+  private readonly statsApi = inject(AdminDashboardApiService);
 
   protected readonly formatClp = formatClp;
   protected readonly formatMinutesToHHMM = formatMinutesToHHMM;
@@ -22,6 +24,9 @@ export class AdminDashboard {
   protected readonly bookings = signal<AdminBooking[]>([]);
   protected readonly loading = signal(true);
   protected readonly loadError = signal<string | null>(null);
+
+  protected readonly stats = signal<DashboardStats | null>(null);
+  protected readonly statsLoading = signal(true);
 
   protected readonly pendingCount = computed(
     () => this.bookings().filter((b) => b.status === 'PENDING').length,
@@ -46,6 +51,16 @@ export class AdminDashboard {
       error: () => {
         this.loadError.set('No pudimos cargar las reservas de hoy.');
         this.loading.set(false);
+      },
+    });
+
+    this.statsApi.getStats().subscribe({
+      next: (stats) => {
+        this.stats.set(stats);
+        this.statsLoading.set(false);
+      },
+      error: () => {
+        this.statsLoading.set(false);
       },
     });
   }

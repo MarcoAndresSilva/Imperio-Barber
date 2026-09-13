@@ -7,6 +7,36 @@
 
 <div class="stat-grid">
   <div class="stat-card">
+    <div class="stat-value">
+      @if (statsLoading()) {
+        …
+      } @else {
+        {{ formatClp(stats()?.monthRevenueClp ?? 0) }}
+      }
+    </div>
+    <div class="stat-label">Ingresos del mes (confirmadas)</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">
+      @if (statsLoading()) {
+        …
+      } @else if (stats()?.topService) {
+        {{ stats()!.topService!.name }}
+      } @else {
+        —
+      }
+    </div>
+    <div class="stat-label">
+      Servicio más pedido este mes
+      @if (stats()?.topService) {
+        ({{ stats()!.topService!.count }})
+      }
+    </div>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
     <div class="stat-value">{{ pendingCount() }}</div>
     <div class="stat-label">Pendientes</div>
   </div>

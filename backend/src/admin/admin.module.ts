@@ -10,6 +10,8 @@ import { AdminUsersController } from './users/admin-users.controller';
 import { AdminUsersService } from './users/admin-users.service';
 import { AdminUploadsController } from './uploads/admin-uploads.controller';
 import { AdminUploadsService } from './uploads/admin-uploads.service';
+import { AdminDashboardController } from './dashboard/admin-dashboard.controller';
+import { AdminDashboardService } from './dashboard/admin-dashboard.service';
 
 @Module({
   imports: [BookingsModule],
@@ -19,6 +21,7 @@ import { AdminUploadsService } from './uploads/admin-uploads.service';
     AdminServicesController,
     AdminUsersController,
     AdminUploadsController,
+    AdminDashboardController,
   ],
   providers: [
     AdminBookingsService,
@@ -26,6 +29,7 @@ import { AdminUploadsService } from './uploads/admin-uploads.service';
     AdminServicesService,
     AdminUsersService,
     AdminUploadsService,
+    AdminDashboardService,
   ],
 })
 export class AdminModule {}

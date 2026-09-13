@@ -34,6 +34,7 @@ Este documento es el registro de cómo se fue construyendo esa idea en la práct
 - **Ajustes post-Fase 4** (Paso 27, probando el panel de verdad): Reservas arranca sin filtro de fecha (antes se veía "vacía" si no había nada hoy); sección "Usuarios del panel" en Cuenta (multi-usuario, mismo rol `ADMIN` — "Opción A"); horarios candidatos cada hora en punto en vez de cada 15 min; `BookingsService.create()` ahora también rechaza fecha pasada, horario ya pasado hoy, y días libres (antes la API los aceptaba si le pegabas directo, aunque la UI ya no los ofrecía)
 - **Fase 5 del cierre — parte de código** (Paso 28): subida real de fotos de barberos a **Cloudinary** con firma (`POST /admin/uploads/signature`, `crypto` nativo, sin SDK; el archivo va directo del navegador a Cloudinary), input de archivo + preview en el panel de Barberos, `photoUrl` pasa a opcional (fallback de iniciales); `seed.ts` a placeholders limpios (barberos 1-3 con las 3 fotos ya commiteadas, 4-6 sin foto, rating 0); `render.yaml` + `netlify.toml` + `environment.prod.ts` listos.
 - **Fase 5 del cierre — despliegue en producción** (Paso 29): **el proyecto está desplegado y funcionando en producción.** Frontend en Netlify (`https://imperio-barber.netlify.app`, autodeploy desde `main`), backend en Render plan **free** (`https://imperio-barber-api.onrender.com`, se acepta el cold start por ser demo), base en Neon (`us-east-2`). Smoke test end-to-end pasado con Playwright contra el sitio real: reserva → `wa.me` → `/confirmar` → aceptar → CONFIRMADA; login del panel con la cuenta real; subida de foto a Cloudinary desde el panel.
+- **Video demo re-grabado + primer KPI del Dashboard** (Paso 30, 2026-09-12): `demo-imperio-barber.mp4` re-grabado contra producción dos veces (transiciones con CTA real en vez de saltos de scroll, ritmo más ágil, tabla de Reservas filtrada). Comparación con **AgendaIA** (competidor que ya contrató otra barbería) documentada — ver Paso 30 en la Parte 4. Primer feature nueva que sale de esa comparación: **2 tarjetas de KPI en el Dashboard** (ingresos del mes de reservas `CONFIRMED`, servicio más pedido del mes) — `GET /admin/dashboard/stats`, 43/43 tests backend OK, build frontend OK, verificado en pantalla con Playwright.
 
 **Estado del repo (2026-09-09):** todo commiteado y pusheado hasta el Paso 29. Paso 28 quedó en el
 commit `6749f81`; el ajuste de despliegue del Paso 29 en `61ce57f` (region ohio) y `1837995`
@@ -56,6 +57,8 @@ plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). Empieza el 2
 
 **📋 Ideas a futuro** (fuera de alcance del cierre — no construir sin que el cliente las priorice):
 - Sistema de reseñas reales de clientes + ranking "mejor barbero del mes/semana" y estimación de ingresos (Paso 20)
+- **Tasa de asistencia/no-show real** (Paso 30): hoy `BookingStatus` no distingue "CONFIRMED que sí llegó" de un no-show — para calcularla de verdad haría falta un estado nuevo (ej. `COMPLETED`) o un flag `attended` que el dueño marque después de la cita. Se dejó afuera de las 2 tarjetas de KPI agregadas en el Paso 30 por eso mismo, no por falta de tiempo.
+- **Features de AgendaIA que son directamente el pivote multi-tenant, no algo para meterle a Imperio** (Paso 30): bot de WhatsApp con IA conversacional 24/7, cobro de abonos vía Mercado Pago, micrositio autogenerado por negocio, "modo TV" para sala de espera. Quedan como insumo para `../plataforma-reservas/ARCHITECTURE.md`, no para este proyecto.
 - **"Opción B" (pedida, pospuesta a otra sesión):** cuentas por barbero con permisos acotados (cada uno ve/gestiona solo su propia agenda y horario) — hoy todos los usuarios del panel tienen el mismo rol `ADMIN` (Paso 27, "Opción A"). Requiere nuevo rol, permisos por recurso, más pantallas.
 - PWA instalable + notificaciones automáticas
 - Pivote a SaaS multi-tenant — ya tiene repo y roadmap propios en `../plataforma-reservas/`, deriva de este proyecto una vez cerrado
@@ -687,5 +690,72 @@ Claude-Session: https://claude.ai/code/session_013tfFoUCFxvhgb8gbZEkqZ9
 
 - **Falta para cerrar (Fase 6):** CI/CD (GitHub Actions), README de portafolio con capturas/links,
   OG tags, Lighthouse, tests e2e. Sin bloqueos.
+
+### Paso 30: Video demo re-grabado, comparación con AgendaIA, y primer KPI del Dashboard
+
+- **Contexto:** el usuario necesitaba con urgencia re-grabar `demo-imperio-barber.mp4` para
+  mostrárselo a otras barberías como venta (el video viejo solo mostraba la reserva pública, no el
+  panel de administración que ya existe desde el Paso 26).
+- **Grabación (delegada a un agente en segundo plano, contra producción):**
+  - 1ª pasada: recorrido completo (landing → Profesionales → reserva real → WhatsApp simulado →
+    `/confirmar/:token` con el barbero aceptando → panel admin completo). Técnica: CDP screencast
+    (`Page.startScreencast`, no `recordVideo` de Playwright) + ffmpeg estático (johnvansickle,
+    descargado a mano porque no había `ffmpeg` con libx264 en la máquina) para el encode final H.264.
+    Resultado: 1m19s, 3.9 MB. Reserva de prueba creada y cancelada en producción.
+  - **Feedback del usuario:** las transiciones (`scrollIntoView` manual) se sentían abruptas, y pidió
+    explícitamente usar los CTA reales del sitio en vez de saltos de scroll, e ir directo a lo
+    importante.
+  - 2ª pasada: se reemplazó el scroll manual por un click real en el CTA "Agendar cita" del header
+    (que ya ancla a `#profesionales` con `scroll-behavior: smooth` propio del sitio — Paso 18/19), se
+    cortó el recorrido completo de la landing, y la tabla de Reservas del panel quedó filtrada por la
+    fecha de la reserva de la demo (evita mostrar filas viejas de pruebas anteriores sin tener que
+    borrarlas de la base). Resultado final: **57s, 2.2 MB**. El video viejo quedó aparte como
+    `demo-imperio-barber.old.mp4` (no se borra nada).
+  - **Deuda dejada a propósito, sin resolver:** la pantalla "Cuenta" del panel muestra el email real
+    del dueño a la vista en el video — pendiente de que el usuario decida si le importa. Quedan
+    reservas `CANCELLED` de pruebas (`PRUEBA SMOKE TEST`, `PRUEBA DEMO VIDEO`) en la base de
+    producción — no se pueden borrar por comando, invisibles en el video porque está filtrado, pero
+    visibles si alguien saca el filtro en el panel real.
+- **Comparación con AgendaIA (`agendaia.cl`), competidor que ya contrató otra barbería consultada
+  por el usuario:** producto full — WhatsApp Business dedicado + IA conversacional 24/7 (agenda,
+  cancela, modifica, responde precios/horarios por chat natural o botones), cobro de abonos/pagos
+  vía Mercado Pago desde el mismo chat, cancelación masiva del día con reversa automática de pagos,
+  recordatorios configurables (24h/2h antes, bienvenida, encuesta post-servicio), agenda visual
+  drag-and-drop multi-sucursal, dashboard con KPIs (asistencia, ingresos proyectados, mapa de calor
+  por hora, ranking de servicios), CRM de clientes (VIP/recurrente, historial), micrositio público
+  autogenerado por negocio (`agendaia.cl/tu-negocio`, 5 paletas, sin diseñador), "modo TV" para sala
+  de espera, apps nativas iOS/Android. Precio: $30.000 CLP/mes por profesional + $20.000 por
+  profesional adicional, plan único todo incluido.
+  - **Decisión de alcance (confirmada con el usuario):** el bot de WhatsApp con IA, los pagos, y el
+    micrositio autogenerado **no son features sueltas para Imperio Barber** — son, en conjunto,
+    exactamente el producto SaaS multi-tenant que ya está planeado como proyecto aparte
+    (`../plataforma-reservas/`). Meterlos acá reabriría el alcance que el Paso 1 dejó fuera a
+    propósito (WhatsApp Business API con costo). Quedan anotados como insumo para ese roadmap, no
+    para este cierre.
+  - Lo que sí se decidió traer a Imperio Barber ahora, por ser barato y de alto impacto visual en un
+    demo: **KPIs en el Dashboard**, sin tocar el modelo de datos ni agregar integraciones nuevas.
+- **Primer KPI implementado — `GET /admin/dashboard/stats`:** nuevo módulo
+  `backend/src/admin/dashboard/` (`AdminDashboardController` + `AdminDashboardService`, protegido por
+  `JwtAuthGuard` como el resto de `AdminModule`) que calcula, sobre el mes calendario actual en hora
+  de Chile (`nowInChile()` + límites `Date.UTC` igual que el resto del backend):
+  - **Ingresos del mes:** suma de `priceClpSnapshot` de reservas `CONFIRMED` del mes (Prisma
+    `aggregate`).
+  - **Servicio más pedido del mes:** `groupBy` por `serviceId` sobre reservas `CONFIRMED`, el de
+    mayor conteo.
+  - **Por qué no se agregó "tasa de asistencia/no-show" (la 3ª métrica que tiene AgendaIA):** el
+    modelo `BookingStatus` no distingue una reserva `CONFIRMED` que el cliente sí atendió de un
+    no-show — no existe ese dato hoy. Inventar el número habría sido peor que no mostrarlo. Requiere
+    un estado nuevo (`COMPLETED`) o un flag `attended` marcado a mano por el dueño — se dejó anotado
+    en "Ideas a futuro" en vez de improvisarlo.
+  - Frontend: `AdminDashboardApiService` (mismo patrón que los demás `admin-*-api.service.ts`),
+    modelo `DashboardStats` en `admin.model.ts`, 2 tarjetas nuevas en `admin-dashboard.html` arriba de
+    las 4 que ya existían (pendientes/confirmadas/etc. de hoy), con estado de carga y caso vacío
+    ("—" / `$0`) manejado explícitamente.
+- **Verificación real:** 3 tests nuevos de `AdminDashboardService` (sin reservas → 0/null; con datos →
+  suma y top service correctos; filtra por `CONFIRMED` + mes calendario) — 43/43 tests backend OK,
+  build backend y frontend OK. Probado en pantalla con Playwright contra el backend local apuntando a
+  Neon (login real, dashboard renderizado, caso vacío visible tal cual porque las reservas de prueba
+  de este mes ya estaban canceladas) — capturas verificadas antes de dar el paso por cerrado, no solo
+  build.
 
 _(se sigue completando a medida que se construye)_
