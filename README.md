@@ -179,14 +179,21 @@ Dos mecanismos separados, a propósito:
 ## 🧪 Tests
 
 ```bash
-# Backend (Jest)
+# Backend (Jest) — unit, con mocks, no necesita DB
 cd backend
-npm test           # unit tests
+npm test
+
+# Backend — e2e, contra una base Postgres real (usa docker compose up -d de más arriba)
+npm run test:e2e
 
 # Frontend
 cd frontend
 npm test
 ```
+
+Los e2e (`test/*.e2e-spec.ts`) levantan la app completa y hablan con una base real: crean su
+propio barbero/servicio de prueba (slug único, no pisan el seed) y los borran al terminar. GitHub
+Actions los corre en cada push/PR contra un Postgres descartable (ver `.github/workflows/ci.yml`).
 
 ---
 

@@ -32,6 +32,48 @@ jobs:
 
       - run: npm test
 
+  backend-e2e:
+    name: Backend (e2e, con Postgres real)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: imperio
+          POSTGRES_PASSWORD: imperio_dev
+          POSTGRES_DB: imperio_barber
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://imperio:imperio_dev@localhost:5432/imperio_barber?schema=public
+      DIRECT_URL: postgresql://imperio:imperio_dev@localhost:5432/imperio_barber?schema=public
+      FRONTEND_URL: http://localhost:4201
+      JWT_SECRET: ci-secret-solo-e2e
+      BOOKING_PENDING_TTL_MINUTES: 25
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - run: npx prisma migrate deploy
+
+      - run: npm run test:e2e
+
   frontend:
     name: Frontend (build)
     runs-on: ubuntu-latest

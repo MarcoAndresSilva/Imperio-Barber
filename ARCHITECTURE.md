@@ -54,8 +54,9 @@ plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). Empieza el 2
   3. ✅ **GitHub Actions** (Paso 32): `.github/workflows/ci.yml`, lint+test backend (Node 22) + build
      frontend en cada push/PR a `main`. De paso se arreglaron 3 bugs de tipado en tests que nadie
      había notado porque el lint nunca se había corrido en este repo.
-  4. ✅ **OG tags + `og:image` + pasada de Lighthouse** (Paso 33): Accessibility y SEO en 100 tras
-     los fixes. Falta la segunda mitad de este punto: un par de tests e2e (supertest).
+  4. ✅ **OG tags + `og:image` + pasada de Lighthouse** (Paso 33) **+ tests e2e** (Paso 34):
+     Accessibility y SEO en 100; 11 tests e2e con `supertest` contra Postgres real cubriendo el
+     ciclo completo de reserva, corriendo en CI con un servicio Postgres descartable.
   - Detalles cosméticos: (a) tabla de Reservas se corta en viewports angostos sin señal de scroll;
     (b) hero de la landing muestra "4.9★ valoración clientes" hardcodeado sin reseñas reales.
 
@@ -858,5 +859,50 @@ Claude-Session: https://claude.ai/code/session_013tfFoUCFxvhgb8gbZEkqZ9
   static server local no tiene CORS habilitado hacia el API de Render, así que salen errores de CORS
   en consola que no existen en el sitio real; una vez desplegado corresponde correr Lighthouse una
   vez más contra la URL real para confirmar el número final).
+
+### Paso 34: Fase 6, punto 4 (parte 2) — Tests e2e del ciclo de reserva
+
+- **Objetivo:** el único e2e que existía (`test/app.e2e-spec.ts`) era el scaffold por defecto de
+  NestJS ("Hello World"), sin tocar nunca la base real. Se agregó
+  `test/booking-flow.e2e-spec.ts`: 11 tests con `supertest` contra la app completa (no mocks) y un
+  Postgres real, cubriendo el ciclo entero — disponibilidad → crear reserva → anti-doble-reserva
+  (409) → el slot desaparece de disponibilidad → ver por token → aceptar → re-aceptar (409) → token
+  inexistente (404). Usa un barbero/servicio propios con slug/whatsapp únicos (timestamp), abiertos
+  los 7 días para no depender de qué weekday caiga la fecha de prueba, y los borra en `afterAll`
+  (verificado aparte que no queda basura: 0 filas después de correr la suite).
+- **3 problemas reales encontrados al intentar correrlos por primera vez** (nunca antes se había
+  bootstrapeado la `AppModule` completa bajo Jest contra una base real — ni siquiera el scaffold
+  original lo hacía de verdad, `app.e2e-spec.ts` no toca ningún módulo con Prisma real):
+  1. **Mismo problema `.js`→`.ts` del Paso 11/23, ahora en `test/jest-e2e.json`:** ese config nunca
+     tuvo el `moduleNameMapper` que sí se agregó al Jest de `package.json` en su momento. Mismo fix,
+     copiado.
+  2. **`@nestjs/mapped-types@12.0.0` es ESM puro** (`"type":"module"`), y `AdminBarbersController`
+     lo importa (vía `UpdateBarberDto extends PartialType(...)`) — al cargar la `AppModule` completa
+     en Jest, revienta con `SyntaxError: Unexpected token 'export'`. **No rompe en producción real**
+     (Node 22 soporta `require()` síncrono de ESM de forma nativa, por eso `nest build` +
+     `node dist/src/main` nunca lo sufrió — se confirmó antes de tocar nada), pero Jest no tiene ese
+     soporte. Se evaluó parchear con `transformIgnorePatterns` (dejó otro error en cadena:
+     `import.meta.url` dentro del `.js` ya compilado de ese paquete no es válido en el CJS que emite
+     ts-jest) y se descartó — **mismo criterio que Paso 10 y Paso 24: no pelear con interop
+     ESM/CJS, bajar a una versión CJS del paquete**. `@nestjs/mapped-types@2.1.1` (peer deps
+     compatibles con NestJS 11) es CJS y resuelve el problema de raíz, no solo en tests.
+  3. **Prisma 7 usa un motor de queries nuevo basado en WASM** que hace `await import(...)` dinámico
+     en tiempo de ejecución (`ClientEngine` → `WasmQueryCompilerLoader`) — Jest lo bloquea por
+     defecto (`TypeError: A dynamic import callback was invoked without --experimental-vm-modules`).
+     Fix: correr Jest con `NODE_OPTIONS=--experimental-vm-modules`, horneado directo en el script
+     `test:e2e` de `package.json` para que nadie tenga que acordarse del flag. De paso se agregó
+     `--forceExit` (el cron de `BookingsService`, vía `ScheduleModule`, deja un timer activo que
+     Jest marca como "worker no salió limpio" — cosmético, no afecta el resultado, pero ensuciaba
+     el log).
+- **CI (`.github/workflows/ci.yml`):** nuevo job `backend-e2e`, con un **servicio Postgres real**
+  (`postgres:16-alpine`, mismas credenciales que `docker-compose.yml` local) en vez de mocks —
+  `npx prisma migrate deploy` contra ese Postgres descartable, después `npm run test:e2e`. Corre en
+  paralelo al job `backend` (lint+unit) y a `frontend` (build), no los bloquea ni depende de ellos.
+- **Verificación real, no solo "debería pasar en CI":** todo esto se probó primero en local, contra
+  el Postgres de Docker de este proyecto (`localhost:5433`, exportando las variables de entorno en
+  el mismo comando — **sin tocar `backend/.env`**, que sigue apuntado a Neon desde el Paso 29/30, así
+  que no hubo ningún riesgo de que un test e2e le pegara a producción). 11/11 tests e2e OK, y de
+  paso: `npm test` (43/43), `npm run build` y `npm run lint` siguen limpios después del downgrade de
+  `@nestjs/mapped-types` — no rompió nada del resto del admin CRUD que lo usa.
 
 _(se sigue completando a medida que se construye)_
