@@ -26,7 +26,9 @@ describe('AdminDashboardService', () => {
   });
 
   it('getStats: sin reservas confirmadas este mes, devuelve ingresos en 0 y topService null', async () => {
-    prisma.booking.aggregate.mockResolvedValue({ _sum: { priceClpSnapshot: null } });
+    prisma.booking.aggregate.mockResolvedValue({
+      _sum: { priceClpSnapshot: null },
+    });
     prisma.booking.groupBy.mockResolvedValue([]);
 
     const stats = await service.getStats();
@@ -36,11 +38,16 @@ describe('AdminDashboardService', () => {
   });
 
   it('getStats: suma los ingresos y arma el topService a partir del groupBy', async () => {
-    prisma.booking.aggregate.mockResolvedValue({ _sum: { priceClpSnapshot: 45000 } });
+    prisma.booking.aggregate.mockResolvedValue({
+      _sum: { priceClpSnapshot: 45000 },
+    });
     prisma.booking.groupBy.mockResolvedValue([
       { serviceId: 'svc-1', _count: { serviceId: 3 } },
     ]);
-    prisma.service.findUnique.mockResolvedValue({ id: 'svc-1', name: 'Corte + Barba' });
+    prisma.service.findUnique.mockResolvedValue({
+      id: 'svc-1',
+      name: 'Corte + Barba',
+    });
 
     const stats = await service.getStats();
 
@@ -51,12 +58,17 @@ describe('AdminDashboardService', () => {
   });
 
   it('getStats: filtra por status CONFIRMED y por el mes calendario actual', async () => {
-    prisma.booking.aggregate.mockResolvedValue({ _sum: { priceClpSnapshot: 0 } });
+    prisma.booking.aggregate.mockResolvedValue({
+      _sum: { priceClpSnapshot: 0 },
+    });
     prisma.booking.groupBy.mockResolvedValue([]);
 
     await service.getStats();
 
-    const aggregateWhere = prisma.booking.aggregate.mock.calls[0][0].where;
+    const [[{ where: aggregateWhere }]] = prisma.booking.aggregate.mock
+      .calls as [
+      [{ where: { status: string; date: { gte: Date; lt: Date } } }],
+    ];
     expect(aggregateWhere.status).toBe('CONFIRMED');
     expect(aggregateWhere.date.gte).toBeInstanceOf(Date);
     expect(aggregateWhere.date.lt).toBeInstanceOf(Date);

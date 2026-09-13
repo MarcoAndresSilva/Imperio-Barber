@@ -101,7 +101,9 @@ describe('AuthService', () => {
       ).resolves.toEqual({ ok: true });
 
       expect(update).toHaveBeenCalledTimes(1);
-      const [[{ where, data }]] = update.mock.calls;
+      const [[{ where, data }]] = update.mock.calls as [
+        [{ where: { id: string }; data: { passwordHash: string } }],
+      ];
       expect(where).toEqual({ id: 'u1' });
       expect(data.passwordHash).not.toBe(passwordHash);
     });

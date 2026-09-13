@@ -51,7 +51,9 @@ plataforma multi-tenant (`../plataforma-reservas/ARCHITECTURE.md`). Empieza el 2
      real del panel en un README público (solo existe el rol `ADMIN`, con permiso total) — se
      documentó con capturas y el video en su lugar.
   2. ✅ **Re-grabar `demo-imperio-barber.mp4`**: hecho en el Paso 30, ya muestra el panel completo.
-  3. GitHub Actions (lint + tests backend con Node 22 + build frontend).
+  3. ✅ **GitHub Actions** (Paso 32): `.github/workflows/ci.yml`, lint+test backend (Node 22) + build
+     frontend en cada push/PR a `main`. De paso se arreglaron 3 bugs de tipado en tests que nadie
+     había notado porque el lint nunca se había corrido en este repo.
   4. OG tags + `og:image`, pasada de Lighthouse, un par de tests e2e (supertest).
   - Detalles cosméticos: (a) tabla de Reservas se corta en viewports angostos sin señal de scroll;
     (b) hero de la landing muestra "4.9★ valoración clientes" hardcodeado sin reseñas reales.
@@ -789,5 +791,35 @@ Claude-Session: https://claude.ai/code/session_013tfFoUCFxvhgb8gbZEkqZ9
   "Fuera de alcance" actualizado con lo que salió del Paso 30 (features de AgendaIA que son alcance
   del SaaS, no de Imperio) en vez de la lista vieja (que todavía decía "panel de administración" como
   pendiente, ya construido hace 4 pasos).
+
+### Paso 32: Fase 6, punto 3 — GitHub Actions (CI)
+
+- **Objetivo:** `.github/workflows/ci.yml` con 2 jobs en cada push/PR a `main`, tal como decía el plan:
+  backend (`npm ci` + `npx prisma generate` + `lint` + `test`, Node 22 vía `.nvmrc`) y frontend
+  (`npm ci` + `build`). El cliente de Prisma se genera aparte porque queda gitignoreado
+  (`backend/.gitignore` → `/generated/prisma`) y el código lo importa directo
+  (`src/prisma/prisma.service.ts`); sin ese paso el `lint`/`test`/`build` del backend fallarían en un
+  runner limpio aunque localmente siempre funcionaron (porque local ya lo tenía generado de antes).
+- **Bugs reales encontrados al simular el workflow en local antes de confiar en que iba a pasar en
+  GitHub** (nunca se había corrido `npm run lint` en este repo hasta ahora — no estaba en ningún flujo
+  previo):
+  - **`test/app.e2e-spec.ts` no compilaba de verdad** (`tsc --noEmit` → `TS2349: This expression is not
+    callable`): el scaffold por defecto de NestJS usa `import * as request from 'supertest'`, pero con
+    la versión instalada (`supertest@7.2.2` sin tipos propios + `@types/supertest@6.0.3`, que expone un
+    `default` en vez de ser directamente invocable) ese import deja de ser una función. Nadie lo había
+    notado porque ni `npm test` (solo corre `*.spec.ts`, no `*.e2e-spec.ts`) ni `npm run build` (Nest
+    excluye `test/` del build) tocan ese archivo. Fix: `import request from 'supertest'`
+    (import default, no namespace).
+  - **2 archivos de test con acceso "unsafe" a un mock tipado `any`** (`auth.service.spec.ts`, y el
+    `admin-dashboard.service.spec.ts` de este mismo cierre, Paso 30): destructurar
+    `jest.Mock.mock.calls` sin tipar da `any` en cada elemento. Fix en ambos: castear el array de
+    `mock.calls` a la forma real de los argumentos en vez de dejarlo `any` — mismo patrón en los dos
+    archivos, para no inventar dos soluciones distintas al mismo problema.
+- **Verificación real (no solo "debería andar"):** todo esto se probó en local, con los mismos comandos
+  del workflow (`npx prisma generate` desde cero, `npm run lint`, `npm test`, `npm run build`, back y
+  front) — no se confió en que iba a pasar en GitHub sin haberlo corrido antes. 0 errores de lint (1
+  warning preexistente en `main.ts`, no bloquea), 43/43 tests, build backend y frontend OK.
+- Frontend no tiene `lint` configurado en `package.json` — el job de CI solo hace `build`, tal como
+  pedía el plan original (no se agregó ESLint al frontend porque no estaba pedido).
 
 _(se sigue completando a medida que se construye)_
